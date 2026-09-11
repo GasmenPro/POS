@@ -1,0 +1,13 @@
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar .nav-link.active {
+    font-weight: 600;
+}
+
+.navbar .btn-link.nav-link {
+    text-decoration: none;
+}
