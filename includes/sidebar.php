@@ -43,11 +43,21 @@
             <a class="nav-link" href="<?php echo e(BASE_URL); ?>/inventory/index.php">Inventory</a>
         </li>
         <?php endif; ?>
+        <?php if (function_exists('user_has_permission') && user_has_permission('pos.view')): ?>
+        <li class="nav-item">
+            <a class="nav-link" href="<?php echo e(BASE_URL); ?>/pos/index.php">Point of Sale</a>
+        </li>
+        <?php endif; ?>
+        <?php if (function_exists('user_has_permission') && user_has_permission('sales.view')): ?>
+        <li class="nav-item">
+            <a class="nav-link" href="<?php echo e(BASE_URL); ?>/pos/sales.php">Sales History</a>
+        </li>
+        <?php endif; ?>
         <?php else: ?>
         <li class="nav-item">
             <a class="nav-link" href="<?php echo e(BASE_URL); ?>/login.php">Login</a>
         </li>
         <?php endif; ?>
     </ul>
-    <p class="text-muted small mt-4 mb-0">Modules will be added in later phases.</p>
+    <p class="text-muted small mt-4 mb-0">Receipts and reports coming in later phases.</p>
 </aside>

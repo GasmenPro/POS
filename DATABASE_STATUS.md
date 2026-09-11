@@ -7,7 +7,7 @@
 | Database name | `pos_db` |
 | Engine / charset | InnoDB / utf8mb4 |
 | Connection layer | Active (`config/database.php`) |
-| Tables | 14 (8 foundation + 3 master data + 1 products + 2 inventory) |
+| Tables | 16 (8 foundation + 3 master data + 1 products + 2 inventory + 2 sales) |
 
 ## Tables
 
@@ -45,44 +45,36 @@
 | `inventory` | Stock quantity and reorder level per product |
 | `inventory_movements` | Audit trail for stock in, stock out, adjustments |
 
-## products Table
+### Sales / POS (Phase 7)
+
+| Table | Purpose |
+|-------|---------|
+| `sales` | Completed sale records |
+| `sale_items` | Sale line items with historical unit price |
+
+## sales Table
 
 | Column | Notes |
 |--------|-------|
-| `product_id` | Primary key |
-| `product_code` | Unique, required |
-| `barcode` | Unique when set, optional |
-| `product_name` | Required |
-| `category_id` | FK → `categories.category_id`, RESTRICT |
-| `brand_id` | FK → `brands.brand_id`, nullable, RESTRICT |
-| `unit_id` | FK → `units.unit_id`, RESTRICT |
-| `description` | Optional |
-| `selling_price` | DECIMAL(12,2), default 0.00 |
-| `status` | `active`, `inactive` |
-
-## inventory Table
-
-| Column | Notes |
-|--------|-------|
-| `inventory_id` | Primary key |
-| `product_id` | FK → `products.product_id`, UNIQUE, RESTRICT |
-| `quantity` | DECIMAL(12,2), default 0.00 |
-| `reorder_level` | DECIMAL(12,2), default 0.00 |
-
-## inventory_movements Table
-
-| Column | Notes |
-|--------|-------|
-| `movement_id` | Primary key |
-| `product_id` | FK → `products.product_id`, RESTRICT |
-| `movement_type` | `stock_in`, `stock_out`, `adjustment` |
-| `quantity` | Amount moved or adjusted to |
-| `previous_quantity` | Quantity before change |
-| `new_quantity` | Quantity after change |
-| `reference_no` | Optional reference (e.g. PO number) |
-| `remarks` | Optional notes |
+| `sale_id` | Primary key |
+| `sale_no` | Unique sale number (e.g. SALE-20260911-0001) |
+| `sale_date` | Datetime of sale |
+| `subtotal` | Sum of line totals |
+| `total_amount` | Total due (same as subtotal in Phase 7) |
+| `payment_amount` | Cash tendered |
+| `change_amount` | Change given |
 | `created_by` | FK → `users.id`, RESTRICT |
-| `created_at` | Timestamp |
+
+## sale_items Table
+
+| Column | Notes |
+|--------|-------|
+| `sale_item_id` | Primary key |
+| `sale_id` | FK → `sales.sale_id`, RESTRICT |
+| `product_id` | FK → `products.product_id`, RESTRICT |
+| `quantity` | Quantity sold |
+| `unit_price` | Price at time of sale (historical) |
+| `line_total` | quantity × unit_price |
 
 ## Relationships
 
@@ -98,11 +90,11 @@ units ──< products
 products ── inventory (1:1)
 products ──< inventory_movements
 users ──< inventory_movements
+users ──< sales
+sales ──< sale_items >── products
 ```
 
-Product and inventory foreign keys use `ON DELETE RESTRICT` to protect referenced data.
-
-## Permissions (16 total)
+## Permissions (19 total)
 
 | Code | Administrator | Staff |
 |------|---------------|-------|
@@ -115,15 +107,16 @@ Product and inventory foreign keys use `ON DELETE RESTRICT` to protect reference
 | units.view / units.manage | ✅ | — |
 | products.view / products.manage | ✅ | — |
 | inventory.view / inventory.manage | ✅ | — |
+| pos.view / pos.manage | ✅ | — |
+| sales.view | ✅ | — |
 
 ## SQL Files
 
-- `database/database.sql` — full schema including Phase 6
-- `database/migrations/006_inventory.sql` — Phase 6 migration
+- `database/database.sql` — full schema including Phase 7
+- `database/migrations/007_basic_pos.sql` — Phase 7 migration
 
 ## Notes
 
-- Products use active/inactive status; no hard deletion.
-- Each product has exactly one inventory row (auto-created on product add).
-- Stock changes are recorded in `inventory_movements` for audit.
-- Sales/POS tables not yet implemented (Phase 7+).
+- Checkout uses a single DB transaction: sale + items + inventory + movements.
+- POS stock-outs use `movement_type = stock_out` with `reference_no = sale_no`.
+- Receipt printing not yet implemented (Phase 8).

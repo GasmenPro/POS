@@ -10,43 +10,42 @@ Point of Sale system for sari-sari stores and small groceries, built with proced
 
 ## Current Phase
 
-**Phase 6 — Inventory** ✅ Complete
+**Phase 7 — Basic POS** ✅ Complete
 
 ## Completed Work
 
-### Phase 0–5
-- Foundation, authentication, user/role management, categories/brands/units master data, product management
+### Phase 0–6
+- Foundation, authentication, user/role management, master data, products, inventory
 
-### Phase 6
-- Created `inventory` and `inventory_movements` tables
-- Added `inventory.view` and `inventory.manage` permissions (Administrator only)
-- Inventory list with search and stock status filter (In Stock, Low Stock, Out of Stock)
-- Stock in, stock out, and adjustment operations with transactional row locking
-- Reorder level management (inline on list page)
-- Movement history per product
-- Auto-initialize inventory record when a product is created
-- Activity logging for all inventory actions
-- Permission-gated sidebar link
+### Phase 7
+- Created `sales` and `sale_items` tables
+- Added `pos.view`, `pos.manage`, and `sales.view` permissions (Administrator only)
+- Session-based POS cart (add, increase/decrease, set quantity, remove, clear)
+- Product search for active in-stock products
+- Cash checkout with server-side price/total/payment validation
+- Unique sale number generation (`SALE-YYYYMMDD-NNNN`)
+- Transactional checkout with `SELECT ... FOR UPDATE` inventory locking
+- Stock deduction via existing `inventory` + `inventory_movements` (POS Sale)
+- Historical unit prices stored in `sale_items`
+- Sales history list and sale detail view
+- Activity logging for completed sales
+- Permission-gated sidebar links (Point of Sale, Sales History)
 
-## Files Created (Phase 6)
+## Files Created (Phase 7)
 
 ```
-includes/inventory.php
-inventory/index.php
-inventory/stock_in.php
-inventory/stock_out.php
-inventory/adjust.php
-inventory/history.php
-inventory/process.php
-database/migrations/006_inventory.sql
+includes/pos.php
+pos/index.php
+pos/process.php
+pos/sales.php
+database/migrations/007_basic_pos.sql
 ```
 
-## Files Modified (Phase 6)
+## Files Modified (Phase 7)
 
 ```
 database/database.sql
 includes/sidebar.php
-products/process.php
 AI_PROGRESS.md
 DATABASE_STATUS.md
 ```
@@ -55,54 +54,52 @@ DATABASE_STATUS.md
 
 | Table | Purpose |
 |-------|---------|
-| `inventory` | One row per product: quantity and reorder level |
-| `inventory_movements` | Audit trail for stock in, stock out, and adjustments |
+| `sales` | Completed sale header (totals, payment, change, cashier) |
+| `sale_items` | Line items with quantity and historical unit price |
 
 ## Permissions Added
 
 | Code | Administrator | Staff |
 |------|---------------|-------|
-| `inventory.view` | ✅ | — |
-| `inventory.manage` | ✅ | — |
+| `pos.view` | ✅ | — |
+| `pos.manage` | ✅ | — |
+| `sales.view` | ✅ | — |
 
 ## Features Implemented
 
-- List inventory with product details, quantity, reorder level, and stock status
-- Search by product code, barcode, or name
-- Stock status filter (all / in stock / low stock / out of stock)
-- Stock in with optional reference number and remarks
-- Stock out with insufficient-stock rejection
-- Stock adjustment (set exact quantity)
-- Reorder level update (inline form on list)
-- Movement history per product
-- `SELECT ... FOR UPDATE` transactions for safe concurrent updates
-- Sync missing inventory records for existing products
-- Show active products plus inactive products that still have stock
+- POS screen: product search, cart, cash checkout
+- Cart stored in PHP session; cleared only after successful checkout
+- Server-side recalculation of prices, line totals, subtotal, and change
+- Checkout rejects insufficient payment, inactive products, and insufficient stock
+- Sale items preserve `unit_price` at time of sale
+- Inventory deducted atomically with `stock_out` movements (`reference_no` = sale number)
+- Sales history with search and per-sale item detail view
 
-## Testing Performed (Phase 6)
+## Testing Performed (Phase 7)
 
 | Test | Result |
 |------|--------|
-| `inventory` + `inventory_movements` tables | ✅ Pass |
-| Inventory initialized at 0 on product create | ✅ Pass |
-| Guest/unauthorized blocked | ✅ Pass |
-| Administrator access | ✅ Pass |
-| Stock in (0 → 10) + movement logged | ✅ Pass |
-| Stock out (10 → 7) | ✅ Pass |
-| Insufficient stock rejected (no extra movement) | ✅ Pass |
-| Adjustment up (7 → 12) and down (12 → 8) | ✅ Pass |
-| Reorder level update | ✅ Pass |
-| Stock status helpers (In/Low/Out) | ✅ Pass |
-| Negative reorder level rejected | ✅ Pass |
+| `sales` + `sale_items` tables and permissions | ✅ Pass |
+| Guest/staff blocked; admin allowed | ✅ Pass |
+| Cart add/inc/dec/set/remove/clear/subtotal | ✅ Pass |
+| Checkout totals (80 total, 100 payment, 20 change) | ✅ Pass |
+| Inventory deduction (A: 10→6, B: 10→7 after two sales) | ✅ Pass |
+| POS inventory movements logged | ✅ Pass |
+| Insufficient payment rejected; cart preserved | ✅ Pass |
+| Insufficient stock rejected; no deduction | ✅ Pass |
+| Stock revalidation at checkout | ✅ Pass |
+| Price revalidation at checkout | ✅ Pass |
+| Historical price preserved after product price change | ✅ Pass |
 | Activity logs | ✅ Pass |
-| Products and home regression | ✅ Pass |
+| Sales history access | ✅ Pass |
+| Phase 1–6 regression | ✅ Pass |
 
 ## Known Issues
 
-None for Phase 6.
+None for Phase 7.
 
 ## Exact Next Task
 
-**PHASE 7 — BASIC POS**
+**PHASE 8 — RECEIPTS**
 
-Implement point-of-sale checkout: cart, sale recording, and stock deduction on sale.
+Implement receipt printing/templates for completed sales.
