@@ -1,5 +1,6 @@
 <?php
 require_once BASE_PATH . '/config/database.php';
+require_once BASE_PATH . '/includes/suppliers.php';
 
 function format_qty($qty)
 {
@@ -87,16 +88,16 @@ function get_inventory_row_for_update($product_id, $db)
     return $row ?: null;
 }
 
-function insert_inventory_movement($db, $product_id, $type, $qty, $prev, $new, $ref, $remarks, $user_id)
+function insert_inventory_movement($db, $product_id, $type, $qty, $prev, $new, $ref, $remarks, $user_id, $supplier_id = null)
 {
     $sql = 'INSERT INTO inventory_movements
-            (product_id, movement_type, quantity, previous_quantity, new_quantity, reference_no, remarks, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+            (product_id, supplier_id, movement_type, quantity, previous_quantity, new_quantity, reference_no, remarks, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
     $stmt = $db->prepare($sql);
     if (!$stmt) {
         return false;
     }
-    $stmt->bind_param('isdddssi', $product_id, $type, $qty, $prev, $new, $ref, $remarks, $user_id);
+    $stmt->bind_param('iisdddssi', $product_id, $supplier_id, $type, $qty, $prev, $new, $ref, $remarks, $user_id);
     $ok = $stmt->execute();
     $stmt->close();
     return $ok;
@@ -213,11 +214,13 @@ function get_product_movements($product_id)
     }
 
     $sql = 'SELECT m.movement_id, m.movement_type, m.quantity, m.previous_quantity, m.new_quantity,
-                   m.reference_no, m.remarks, m.created_at,
+                   m.reference_no, m.remarks, m.created_at, m.supplier_id,
                    p.product_code, p.product_name,
+                   s.supplier_code, s.supplier_name,
                    CONCAT(u.first_name, " ", u.last_name) AS user_name
             FROM inventory_movements m
             INNER JOIN products p ON p.product_id = m.product_id
+            LEFT JOIN suppliers s ON s.supplier_id = m.supplier_id
             INNER JOIN users u ON u.id = m.created_by
             WHERE m.product_id = ?
             ORDER BY m.created_at DESC, m.movement_id DESC';
@@ -234,7 +237,7 @@ function get_product_movements($product_id)
     return $rows;
 }
 
-function process_stock_in($product_id, $qty, $ref, $remarks, $user_id)
+function process_stock_in($product_id, $qty, $ref, $remarks, $user_id, $supplier_id = null)
 {
     $product = get_active_product_for_inventory($product_id);
     if (!$product || $product['status'] !== 'active') {
@@ -251,6 +254,28 @@ function process_stock_in($product_id, $qty, $ref, $remarks, $user_id)
 
     $db->begin_transaction();
     try {
+        $supplier = null;
+        if ($supplier_id !== null && (int) $supplier_id > 0) {
+            $supplier_id = (int) $supplier_id;
+            $sql = 'SELECT supplier_id, supplier_code, supplier_name, status
+                    FROM suppliers
+                    WHERE supplier_id = ?
+                    LIMIT 1
+                    FOR UPDATE';
+            $stmt = $db->prepare($sql);
+            $stmt->bind_param('i', $supplier_id);
+            $stmt->execute();
+            $supplier = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+
+            if (!$supplier || $supplier['status'] !== 'active') {
+                $db->rollback();
+                return [false, 'Supplier not found or inactive.'];
+            }
+        } else {
+            $supplier_id = null;
+        }
+
         $inv = get_inventory_row_for_update($product_id, $db);
         if (!$inv) {
             throw new Exception('Inventory record not found.');
@@ -265,12 +290,13 @@ function process_stock_in($product_id, $qty, $ref, $remarks, $user_id)
 
         $ref_val = $ref !== '' ? $ref : null;
         $remarks_val = $remarks !== '' ? $remarks : null;
-        if (!insert_inventory_movement($db, $product_id, 'stock_in', $qty, $prev, $new, $ref_val, $remarks_val, $user_id)) {
+        if (!insert_inventory_movement($db, $product_id, 'stock_in', $qty, $prev, $new, $ref_val, $remarks_val, $user_id, $supplier_id)) {
             throw new Exception('Failed to record movement.');
         }
 
+        $supplier_text = $supplier ? ' from ' . $supplier['supplier_name'] : '';
         record_activity_log($user_id, 'stock_in', 'inventory',
-            'Stock in ' . format_qty($qty) . ' for ' . $product['product_name'] . ' (' . $prev . ' -> ' . $new . ')');
+            'Stock in ' . format_qty($qty) . ' for ' . $product['product_name'] . $supplier_text . ' (' . $prev . ' -> ' . $new . ')');
 
         $db->commit();
         return [true, ''];

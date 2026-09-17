@@ -40,6 +40,7 @@ require_once BASE_PATH . '/includes/sidebar.php';
                         <th>Qty/Diff</th>
                         <th>Previous</th>
                         <th>New</th>
+                        <th>Supplier</th>
                         <th>Reference</th>
                         <th>Remarks</th>
                         <th>User</th>
@@ -47,7 +48,7 @@ require_once BASE_PATH . '/includes/sidebar.php';
                 </thead>
                 <tbody>
                 <?php if (empty($movements)): ?>
-                    <tr><td colspan="8" class="text-muted">No movement history for this product.</td></tr>
+                    <tr><td colspan="9" class="text-muted">No movement history for this product.</td></tr>
                 <?php else: foreach ($movements as $m): ?>
                     <tr>
                         <td><?php echo e(date('M j, Y g:i A', strtotime($m['created_at']))); ?></td>
@@ -55,6 +56,7 @@ require_once BASE_PATH . '/includes/sidebar.php';
                         <td><?php echo e(format_qty($m['quantity'])); ?></td>
                         <td><?php echo e(format_qty($m['previous_quantity'])); ?></td>
                         <td><?php echo e(format_qty($m['new_quantity'])); ?></td>
+                        <td><?php echo e($m['supplier_name'] ? $m['supplier_code'] . ' — ' . $m['supplier_name'] : '—'); ?></td>
                         <td><?php echo e($m['reference_no'] ?? '—'); ?></td>
                         <td><?php echo e($m['remarks'] ?? '—'); ?></td>
                         <td><?php echo e($m['user_name']); ?></td>

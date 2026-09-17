@@ -36,7 +36,10 @@ require_once BASE_PATH . '/includes/sidebar.php';
     <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <span>Sale Details — <?php echo e($sale_detail['sale_no']); ?></span>
-            <a href="<?php echo e(BASE_URL); ?>/pos/sales.php" class="btn btn-sm btn-outline-secondary">Back to List</a>
+            <div class="d-flex gap-2">
+                <a href="<?php echo e(BASE_URL); ?>/receipts/view.php?sale_id=<?php echo (int) $sale_detail['sale_id']; ?>" class="btn btn-sm btn-outline-primary">View Receipt</a>
+                <a href="<?php echo e(BASE_URL); ?>/pos/sales.php" class="btn btn-sm btn-outline-secondary">Back to List</a>
+            </div>
         </div>
         <div class="card-body">
             <div class="row mb-3">
@@ -121,6 +124,7 @@ require_once BASE_PATH . '/includes/sidebar.php';
                         <td><?php echo e($sale['cashier_name']); ?></td>
                         <td>
                             <a href="<?php echo e(BASE_URL); ?>/pos/sales.php?id=<?php echo (int) $sale['sale_id']; ?>" class="btn btn-sm btn-outline-primary">View</a>
+                            <a href="<?php echo e(BASE_URL); ?>/receipts/view.php?sale_id=<?php echo (int) $sale['sale_id']; ?>" class="btn btn-sm btn-outline-secondary">Receipt</a>
                         </td>
                     </tr>
                 <?php endforeach; endif; ?>

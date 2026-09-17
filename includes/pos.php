@@ -96,9 +96,14 @@ function search_pos_products($search = '')
         $params[] = $like;
         $params[] = $like;
         $types .= 'sss';
+        $sql .= ' ORDER BY (p.barcode = ?) DESC, (p.product_code = ?) DESC, p.product_name ASC';
+        $params[] = $search;
+        $params[] = $search;
+        $types .= 'ss';
+    } else {
+        $sql .= ' ORDER BY p.product_name ASC';
     }
-
-    $sql .= ' ORDER BY p.product_name ASC LIMIT 50';
+    $sql .= ' LIMIT 50';
 
     $stmt = $db->prepare($sql);
     $stmt->bind_param($types, ...$params);
@@ -498,4 +503,49 @@ function get_sale_by_id($sale_id)
 
     $sale['items'] = $items;
     return $sale;
+}
+
+function get_receipt_store_info()
+{
+    $info = [
+        'name' => APP_NAME,
+        'address' => '',
+        'contact' => '',
+    ];
+
+    $db = get_db_connection();
+    if (!$db) {
+        return $info;
+    }
+
+    $keys = ['app_name', 'store_address', 'store_contact'];
+    $sql = 'SELECT setting_key, setting_value
+            FROM settings
+            WHERE setting_key IN (?, ?, ?)';
+    $stmt = $db->prepare($sql);
+    if (!$stmt) {
+        return $info;
+    }
+
+    $stmt->bind_param('sss', $keys[0], $keys[1], $keys[2]);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    while ($row = $result->fetch_assoc()) {
+        $value = trim((string) $row['setting_value']);
+        if ($value === '') {
+            continue;
+        }
+
+        if ($row['setting_key'] === 'app_name') {
+            $info['name'] = $value;
+        } elseif ($row['setting_key'] === 'store_address') {
+            $info['address'] = $value;
+        } elseif ($row['setting_key'] === 'store_contact') {
+            $info['contact'] = $value;
+        }
+    }
+
+    $stmt->close();
+    return $info;
 }

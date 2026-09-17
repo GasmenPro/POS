@@ -48,22 +48,22 @@ require_once BASE_PATH . '/includes/sidebar.php';
     <h1 class="h3 mb-3">Edit Product</h1>
     <?php if ($error): ?><div class="alert alert-danger"><?php echo e($error); ?></div><?php endif; ?>
     <div class="card"><div class="card-body">
-        <form method="post" action="<?php echo e(BASE_URL); ?>/products/process.php">
+        <form method="post" action="<?php echo e(BASE_URL); ?>/products/process.php" enctype="multipart/form-data">
             <?php csrf_field(); ?>
             <input type="hidden" name="action" value="update">
             <input type="hidden" name="product_id" value="<?php echo e($item['product_id']); ?>">
             <div class="row g-3">
                 <div class="col-md-6">
                     <label class="form-label">Product Code</label>
-                    <input type="text" class="form-control" name="product_code" value="<?php echo e($old['product_code'] ?? $item['product_code']); ?>" required>
+                    <input type="text" class="form-control" name="product_code" maxlength="100" value="<?php echo e($old['product_code'] ?? $item['product_code']); ?>" required>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Barcode</label>
-                    <input type="text" class="form-control" name="barcode" value="<?php echo e($old['barcode'] ?? $item['barcode'] ?? ''); ?>">
+                    <input type="text" class="form-control" name="barcode" maxlength="100" value="<?php echo e($old['barcode'] ?? $item['barcode'] ?? ''); ?>">
                 </div>
                 <div class="col-md-12">
                     <label class="form-label">Product Name</label>
-                    <input type="text" class="form-control" name="product_name" value="<?php echo e($old['product_name'] ?? $item['product_name']); ?>" required>
+                    <input type="text" class="form-control" name="product_name" maxlength="255" value="<?php echo e($old['product_name'] ?? $item['product_name']); ?>" required>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Category</label>
@@ -94,6 +94,20 @@ require_once BASE_PATH . '/includes/sidebar.php';
                     <label class="form-label">Description</label>
                     <textarea class="form-control" name="description" rows="2"><?php echo e($old['description'] ?? $item['description'] ?? ''); ?></textarea>
                 </div>
+                <div class="col-md-8">
+                    <label class="form-label">Replace Product Image</label>
+                    <input type="file" class="form-control" name="image" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+                    <div class="form-text">Leave empty to keep the current image. JPG, PNG, or WEBP; maximum 5 MB.</div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label d-block">Current Image</label>
+                    <?php $image_url = product_image_url($item['image']); ?>
+                    <?php if ($image_url): ?>
+                        <img src="<?php echo e($image_url); ?>" alt="<?php echo e($item['product_name']); ?>" class="product-image-preview">
+                    <?php else: ?>
+                        <div class="product-image-placeholder">No image</div>
+                    <?php endif; ?>
+                </div>
                 <div class="col-md-4">
                     <label class="form-label">Selling Price</label>
                     <input type="number" class="form-control" name="selling_price" min="0" step="0.01" value="<?php echo e($old['selling_price'] ?? $item['selling_price']); ?>" required>
@@ -112,6 +126,14 @@ require_once BASE_PATH . '/includes/sidebar.php';
                 <a href="<?php echo e(BASE_URL); ?>/products/index.php" class="btn btn-outline-secondary">Cancel</a>
             </div>
         </form>
+        <?php if ($image_url): ?>
+            <form method="post" action="<?php echo e(BASE_URL); ?>/products/process.php" class="mt-3">
+                <?php csrf_field(); ?>
+                <input type="hidden" name="action" value="remove_image">
+                <input type="hidden" name="product_id" value="<?php echo e($item['product_id']); ?>">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Remove Current Image</button>
+            </form>
+        <?php endif; ?>
     </div></div>
 </main>
 

@@ -2,7 +2,7 @@
     <h6 class="text-muted text-uppercase small mb-3">Menu</h6>
     <ul class="nav flex-column">
         <li class="nav-item">
-            <a class="nav-link" href="<?php echo e(BASE_URL); ?>/">Home</a>
+            <a class="nav-link" href="<?php echo e(BASE_URL); ?>/">Dashboard</a>
         </li>
         <?php if (function_exists('is_logged_in') && is_logged_in()): ?>
         <li class="nav-item">
@@ -33,6 +33,11 @@
             <a class="nav-link" href="<?php echo e(BASE_URL); ?>/units/index.php">Units</a>
         </li>
         <?php endif; ?>
+        <?php if (function_exists('user_has_permission') && user_has_permission('suppliers.view')): ?>
+        <li class="nav-item">
+            <a class="nav-link" href="<?php echo e(BASE_URL); ?>/suppliers/index.php">Suppliers</a>
+        </li>
+        <?php endif; ?>
         <?php if (function_exists('user_has_permission') && user_has_permission('products.view')): ?>
         <li class="nav-item">
             <a class="nav-link" href="<?php echo e(BASE_URL); ?>/products/index.php">Product Management</a>
@@ -53,11 +58,21 @@
             <a class="nav-link" href="<?php echo e(BASE_URL); ?>/pos/sales.php">Sales History</a>
         </li>
         <?php endif; ?>
+        <?php if (function_exists('user_has_permission') && (user_has_permission('sales.view') || user_has_permission('inventory.view') || user_has_permission('suppliers.view'))): ?>
+        <li class="nav-item">
+            <a class="nav-link" href="<?php echo e(BASE_URL); ?>/reports/index.php">Reports</a>
+        </li>
+        <?php endif; ?>
+        <?php if (function_exists('user_has_permission') && user_has_permission('backup.manage')): ?>
+        <li class="nav-item">
+            <a class="nav-link" href="<?php echo e(BASE_URL); ?>/backup/index.php">Backup &amp; Restore</a>
+        </li>
+        <?php endif; ?>
         <?php else: ?>
         <li class="nav-item">
             <a class="nav-link" href="<?php echo e(BASE_URL); ?>/login.php">Login</a>
         </li>
         <?php endif; ?>
     </ul>
-    <p class="text-muted small mt-4 mb-0">Receipts and reports coming in later phases.</p>
+    <p class="text-muted small mt-4 mb-0">Additional modules will be added in later phases.</p>
 </aside>

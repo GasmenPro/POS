@@ -6,6 +6,7 @@ require_once dirname(__DIR__) . '/includes/inventory.php';
 require_permission('inventory.manage');
 
 $products = get_active_products_for_inventory_select();
+$suppliers = get_active_suppliers();
 $page_title = APP_NAME . ' — Stock In';
 $error = get_flash('error');
 
@@ -33,6 +34,16 @@ require_once BASE_PATH . '/includes/sidebar.php';
                         <option value="<?php echo e($p['product_id']); ?>"><?php echo e($p['product_code'] . ' — ' . $p['product_name'] . ' (Stock: ' . format_qty($p['quantity']) . ')'); ?></option>
                     <?php endforeach; ?>
                 </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Supplier</label>
+                <select name="supplier_id" class="form-select">
+                    <option value="">No supplier</option>
+                    <?php foreach ($suppliers as $supplier): ?>
+                        <option value="<?php echo (int) $supplier['supplier_id']; ?>"><?php echo e($supplier['supplier_code'] . ' — ' . $supplier['supplier_name']); ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <div class="form-text">Optional. Only active suppliers are listed.</div>
             </div>
             <div class="mb-3">
                 <label class="form-label">Quantity</label>

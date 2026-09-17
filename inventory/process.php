@@ -15,10 +15,19 @@ if ($action === 'stock_in') {
     require_permission('inventory.manage');
     $product_id = (int) ($_POST['product_id'] ?? 0);
     $qty = (float) ($_POST['quantity'] ?? 0);
+    $supplier_value = trim((string) ($_POST['supplier_id'] ?? ''));
+    $supplier_id = null;
+    if ($supplier_value !== '') {
+        $supplier_id = filter_var($supplier_value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if ($supplier_id === false) {
+            set_flash('error', 'Invalid supplier selected.');
+            redirect('/inventory/stock_in.php');
+        }
+    }
     $ref = trim($_POST['reference_no'] ?? '');
     $remarks = trim($_POST['remarks'] ?? '');
 
-    list($ok, $message) = process_stock_in($product_id, $qty, $ref, $remarks, $user_id);
+    list($ok, $message) = process_stock_in($product_id, $qty, $ref, $remarks, $user_id, $supplier_id);
     set_flash($ok ? 'success' : 'error', $ok ? 'Stock in recorded successfully.' : $message);
     redirect($ok ? '/inventory/index.php' : '/inventory/stock_in.php');
 }

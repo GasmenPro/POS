@@ -26,21 +26,21 @@ require_once BASE_PATH . '/includes/sidebar.php';
     <?php endif; ?>
 
     <div class="card"><div class="card-body">
-        <form method="post" action="<?php echo e(BASE_URL); ?>/products/process.php">
+        <form method="post" action="<?php echo e(BASE_URL); ?>/products/process.php" enctype="multipart/form-data">
             <?php csrf_field(); ?>
             <input type="hidden" name="action" value="create">
             <div class="row g-3">
                 <div class="col-md-6">
                     <label class="form-label">Product Code</label>
-                    <input type="text" class="form-control" name="product_code" value="<?php echo e($old['product_code'] ?? ''); ?>" required>
+                    <input type="text" class="form-control" name="product_code" maxlength="100" value="<?php echo e($old['product_code'] ?? ''); ?>" required>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Barcode</label>
-                    <input type="text" class="form-control" name="barcode" value="<?php echo e($old['barcode'] ?? ''); ?>">
+                    <input type="text" class="form-control" name="barcode" maxlength="100" value="<?php echo e($old['barcode'] ?? ''); ?>">
                 </div>
                 <div class="col-md-12">
                     <label class="form-label">Product Name</label>
-                    <input type="text" class="form-control" name="product_name" value="<?php echo e($old['product_name'] ?? ''); ?>" required>
+                    <input type="text" class="form-control" name="product_name" maxlength="255" value="<?php echo e($old['product_name'] ?? ''); ?>" required>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Category</label>
@@ -72,6 +72,11 @@ require_once BASE_PATH . '/includes/sidebar.php';
                 <div class="col-md-12">
                     <label class="form-label">Description</label>
                     <textarea class="form-control" name="description" rows="2"><?php echo e($old['description'] ?? ''); ?></textarea>
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Product Image</label>
+                    <input type="file" class="form-control" name="image" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+                    <div class="form-text">Optional. JPG, PNG, or WEBP; maximum 5 MB.</div>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Selling Price</label>

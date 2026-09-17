@@ -7,7 +7,8 @@
 | Database name | `pos_db` |
 | Engine / charset | InnoDB / utf8mb4 |
 | Connection layer | Active (`config/database.php`) |
-| Tables | 16 (8 foundation + 3 master data + 1 products + 2 inventory + 2 sales) |
+| Tables | 17 (8 foundation + 3 product master data + 1 suppliers + 1 products + 2 inventory + 2 sales) |
+| Permissions | 22 |
 
 ## Tables
 
@@ -32,11 +33,19 @@
 | `brands` | Product brands |
 | `units` | Units of measure |
 
-### Products (Phase 5)
+### Suppliers (Phase 9)
 
 | Table | Purpose |
 |-------|---------|
-| `products` | Product master records |
+| `suppliers` | Supplier master data and active/inactive status |
+
+### Products (Phases 5 and 10)
+
+| Table | Purpose |
+|-------|---------|
+| `products` | Product master records, including an optional managed image path |
+
+`products.image` is a nullable `VARCHAR(255)`. Image binary data is not stored in MySQL; managed files are kept under `assets/uploads/products/`.
 
 ### Inventory (Phase 6)
 
@@ -44,6 +53,8 @@
 |-------|---------|
 | `inventory` | Stock quantity and reorder level per product |
 | `inventory_movements` | Audit trail for stock in, stock out, adjustments |
+
+`inventory_movements.supplier_id` is nullable and references `suppliers.supplier_id` with restrictive deletion behavior. Stock-in movements may store a supplier; stock-out, adjustments, POS movements, and earlier records keep `NULL`.
 
 ### Sales / POS (Phase 7)
 
@@ -87,6 +98,7 @@ users ──< login_logs
 categories ──< products
 brands ──< products (optional)
 units ──< products
+suppliers ──< inventory_movements (optional on stock-in)
 products ── inventory (1:1)
 products ──< inventory_movements
 users ──< inventory_movements
@@ -94,7 +106,7 @@ users ──< sales
 sales ──< sale_items >── products
 ```
 
-## Permissions (19 total)
+## Permissions (22 total)
 
 | Code | Administrator | Staff |
 |------|---------------|-------|
@@ -109,14 +121,25 @@ sales ──< sale_items >── products
 | inventory.view / inventory.manage | ✅ | — |
 | pos.view / pos.manage | ✅ | — |
 | sales.view | ✅ | — |
+| suppliers.view / suppliers.manage | ✅ | — |
+| backup.manage | ✅ | — |
 
 ## SQL Files
 
-- `database/database.sql` — full schema including Phase 7
+- `database/database.sql` — full schema and seed data through Phase 13
 - `database/migrations/007_basic_pos.sql` — Phase 7 migration
+- `database/migrations/009_suppliers.sql` — Phase 9 supplier and stock-in integration migration
+- `database/migrations/010_advanced_products.sql` — Phase 10 optional product image column
+- `database/migrations/013_backup_restore.sql` — Phase 13 Administrator-only backup permission
 
 ## Notes
 
 - Checkout uses a single DB transaction: sale + items + inventory + movements.
 - POS stock-outs use `movement_type = stock_out` with `reference_no = sale_no`.
-- Receipt printing not yet implemented (Phase 8).
+- Receipt printing is implemented using existing sales data (Phase 8).
+- Supplier stock-in validation, inventory update, and movement creation run in the same transaction.
+- Existing movement records were preserved with `supplier_id = NULL`.
+- Product images use an optional database path; product status changes do not change inventory quantities or remove images.
+- Phase 10 reused `products.view` and `products.manage`.
+- Phase 13 added `backup.manage` to Administrator only; no database table or column was added.
+- SQL backups are stored outside database tables in the protected `storage/backups/` directory.

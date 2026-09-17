@@ -1,19 +1,26 @@
 <?php
 require_once BASE_PATH . '/config/database.php';
+require_once BASE_PATH . '/includes/inventory.php';
 
-function get_all_products($search = '', $status = '')
+define('PRODUCT_IMAGE_MAX_SIZE', 5 * 1024 * 1024);
+
+function get_all_products($search = '', $status = '', $category_id = 0)
 {
     $db = get_db_connection();
     if (!$db) {
         return [];
     }
 
-    $sql = 'SELECT p.product_id, p.product_code, p.barcode, p.product_name, p.selling_price, p.status,
-                   c.category_name, b.brand_name, u.unit_name, p.created_at
+    $sql = 'SELECT p.product_id, p.product_code, p.barcode, p.product_name, p.image,
+                   p.selling_price, p.status, p.category_id,
+                   c.category_name, b.brand_name, u.unit_name, p.created_at,
+                   COALESCE(i.quantity, 0) AS quantity,
+                   COALESCE(i.reorder_level, 0) AS reorder_level
             FROM products p
             INNER JOIN categories c ON c.category_id = p.category_id
             LEFT JOIN brands b ON b.brand_id = p.brand_id
             INNER JOIN units u ON u.unit_id = p.unit_id
+            LEFT JOIN inventory i ON i.product_id = p.product_id
             WHERE 1=1';
     $params = [];
     $types = '';
@@ -34,16 +41,24 @@ function get_all_products($search = '', $status = '')
         $types .= 's';
     }
 
+    $category_id = (int) $category_id;
+    if ($category_id > 0) {
+        $sql .= ' AND p.category_id = ?';
+        $params[] = $category_id;
+        $types .= 'i';
+    }
+
     $sql .= ' ORDER BY p.product_name ASC';
 
-    if ($params) {
-        $stmt = $db->prepare($sql);
-        $stmt->bind_param($types, ...$params);
-        $stmt->execute();
-        $result = $stmt->get_result();
-    } else {
-        $result = $db->query($sql);
+    $stmt = $db->prepare($sql);
+    if (!$stmt) {
+        return [];
     }
+    if ($params) {
+        $stmt->bind_param($types, ...$params);
+    }
+    $stmt->execute();
+    $result = $stmt->get_result();
 
     if (!$result) {
         return [];
@@ -51,11 +66,10 @@ function get_all_products($search = '', $status = '')
 
     $rows = [];
     while ($row = $result->fetch_assoc()) {
+        $row['stock_status'] = get_stock_status($row['quantity'], $row['reorder_level']);
         $rows[] = $row;
     }
-    if (isset($stmt)) {
-        $stmt->close();
-    }
+    $stmt->close();
     return $rows;
 }
 
@@ -67,7 +81,7 @@ function get_product_by_id($id)
     }
 
     $sql = 'SELECT product_id, product_code, barcode, product_name, category_id, brand_id, unit_id,
-                   description, selling_price, status, created_at, updated_at
+                   description, image, selling_price, status, created_at, updated_at
             FROM products WHERE product_id = ? LIMIT 1';
     $stmt = $db->prepare($sql);
     $stmt->bind_param('i', $id);
@@ -76,6 +90,38 @@ function get_product_by_id($id)
     $row = $result ? $result->fetch_assoc() : null;
     $stmt->close();
     return $row ?: null;
+}
+
+function get_product_details($id)
+{
+    $db = get_db_connection();
+    if (!$db) {
+        return null;
+    }
+
+    $sql = 'SELECT p.product_id, p.product_code, p.barcode, p.product_name, p.description, p.image,
+                   p.selling_price, p.status, p.created_at, p.updated_at,
+                   c.category_name, b.brand_name, u.unit_name, u.unit_code,
+                   COALESCE(i.quantity, 0) AS quantity,
+                   COALESCE(i.reorder_level, 0) AS reorder_level
+            FROM products p
+            INNER JOIN categories c ON c.category_id = p.category_id
+            LEFT JOIN brands b ON b.brand_id = p.brand_id
+            INNER JOIN units u ON u.unit_id = p.unit_id
+            LEFT JOIN inventory i ON i.product_id = p.product_id
+            WHERE p.product_id = ?
+            LIMIT 1';
+    $stmt = $db->prepare($sql);
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if (!$row) {
+        return null;
+    }
+    $row['stock_status'] = get_stock_status($row['quantity'], $row['reorder_level']);
+    return $row;
 }
 
 function product_code_exists($code, $exclude_id = null)
@@ -144,6 +190,24 @@ function get_active_categories_for_select()
     while ($row = $result->fetch_assoc()) {
         $rows[] = $row;
     }
+    return $rows;
+}
+
+function get_categories_for_filter()
+{
+    $db = get_db_connection();
+    if (!$db) {
+        return [];
+    }
+
+    $stmt = $db->prepare('SELECT category_id, category_name FROM categories ORDER BY category_name ASC');
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $rows = [];
+    while ($row = $result->fetch_assoc()) {
+        $rows[] = $row;
+    }
+    $stmt->close();
     return $rows;
 }
 
@@ -240,13 +304,13 @@ function create_product($data)
         return false;
     }
 
-    $sql = 'INSERT INTO products (product_code, barcode, product_name, category_id, brand_id, unit_id, description, selling_price, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    $sql = 'INSERT INTO products (product_code, barcode, product_name, category_id, brand_id, unit_id, description, image, selling_price, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
     $stmt = $db->prepare($sql);
 
     $brand_id = $data['brand_id'];
     $stmt->bind_param(
-        'sssiiisds',
+        'sssiiissds',
         $data['product_code'],
         $data['barcode'],
         $data['product_name'],
@@ -254,6 +318,7 @@ function create_product($data)
         $brand_id,
         $data['unit_id'],
         $data['description'],
+        $data['image'],
         $data['selling_price'],
         $data['status']
     );
@@ -276,12 +341,12 @@ function update_product($id, $data)
     }
 
     $sql = 'UPDATE products SET product_code = ?, barcode = ?, product_name = ?, category_id = ?, brand_id = ?,
-            unit_id = ?, description = ?, selling_price = ?, status = ? WHERE product_id = ?';
+            unit_id = ?, description = ?, image = ?, selling_price = ?, status = ? WHERE product_id = ?';
     $stmt = $db->prepare($sql);
 
     $brand_id = $data['brand_id'];
     $stmt->bind_param(
-        'sssiiisdsi',
+        'sssiiissdsi',
         $data['product_code'],
         $data['barcode'],
         $data['product_name'],
@@ -289,6 +354,7 @@ function update_product($id, $data)
         $brand_id,
         $data['unit_id'],
         $data['description'],
+        $data['image'],
         $data['selling_price'],
         $data['status'],
         $id
@@ -312,6 +378,133 @@ function update_product_status($id, $status)
     $ok = $stmt->execute();
     $stmt->close();
     return $ok;
+}
+
+function update_product_image($id, $image)
+{
+    $db = get_db_connection();
+    if (!$db) {
+        return false;
+    }
+
+    $sql = 'UPDATE products SET image = ? WHERE product_id = ?';
+    $stmt = $db->prepare($sql);
+    $stmt->bind_param('si', $image, $id);
+    $ok = $stmt->execute();
+    $stmt->close();
+    return $ok;
+}
+
+function product_image_directory()
+{
+    return BASE_PATH . '/assets/uploads/products';
+}
+
+function is_safe_product_image_path($image)
+{
+    return is_string($image)
+        && preg_match('/^products\/[a-f0-9]{32}\.(jpg|png|webp)$/', $image) === 1;
+}
+
+function product_image_url($image)
+{
+    if (!is_safe_product_image_path($image)) {
+        return null;
+    }
+    return BASE_URL . '/assets/uploads/products/' . rawurlencode(basename($image));
+}
+
+function product_image_absolute_path($image)
+{
+    if (!is_safe_product_image_path($image)) {
+        return null;
+    }
+    return product_image_directory() . DIRECTORY_SEPARATOR . basename($image);
+}
+
+function validate_product_image_file($tmp_path, $original_name, $size, $require_uploaded_file = true)
+{
+    if (!is_string($tmp_path) || $tmp_path === '' || !is_file($tmp_path)) {
+        return [false, 'Uploaded image could not be read.', null];
+    }
+    if ($require_uploaded_file && !is_uploaded_file($tmp_path)) {
+        return [false, 'Invalid image upload.', null];
+    }
+    if ((int) $size <= 0 || (int) $size > PRODUCT_IMAGE_MAX_SIZE) {
+        return [false, 'Product image must be 5 MB or smaller.', null];
+    }
+
+    $extension = strtolower(pathinfo((string) $original_name, PATHINFO_EXTENSION));
+    $allowed_extensions = ['jpg', 'jpeg', 'png', 'webp'];
+    if (!in_array($extension, $allowed_extensions, true)) {
+        return [false, 'Product image must be JPG, PNG, or WEBP.', null];
+    }
+
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mime = $finfo->file($tmp_path);
+    $mime_extensions = [
+        'image/jpeg' => ['jpg', 'jpeg'],
+        'image/png' => ['png'],
+        'image/webp' => ['webp'],
+    ];
+    if (!isset($mime_extensions[$mime]) || !in_array($extension, $mime_extensions[$mime], true)) {
+        return [false, 'Image file type does not match its extension.', null];
+    }
+    if (@getimagesize($tmp_path) === false) {
+        return [false, 'Uploaded file is not a valid image.', null];
+    }
+
+    $safe_extension = $mime === 'image/jpeg' ? 'jpg' : $extension;
+    return [true, '', $safe_extension];
+}
+
+function store_product_image_upload($file)
+{
+    if (!isset($file['error']) || (int) $file['error'] === UPLOAD_ERR_NO_FILE) {
+        return [true, '', null];
+    }
+    if ((int) $file['error'] !== UPLOAD_ERR_OK) {
+        return [false, 'Product image upload failed. Please try again.', null];
+    }
+
+    list($valid, $message, $extension) = validate_product_image_file(
+        $file['tmp_name'] ?? '',
+        $file['name'] ?? '',
+        $file['size'] ?? 0,
+        true
+    );
+    if (!$valid) {
+        return [false, $message, null];
+    }
+
+    $directory = product_image_directory();
+    if (!is_dir($directory) && !mkdir($directory, 0755, true)) {
+        return [false, 'Product image directory is unavailable.', null];
+    }
+
+    try {
+        $filename = bin2hex(random_bytes(16)) . '.' . $extension;
+    } catch (Exception $e) {
+        return [false, 'Unable to generate a safe image filename.', null];
+    }
+    $destination = $directory . DIRECTORY_SEPARATOR . $filename;
+    if (!move_uploaded_file($file['tmp_name'], $destination)) {
+        return [false, 'Unable to save product image.', null];
+    }
+
+    return [true, '', 'products/' . $filename];
+}
+
+function delete_product_image_file($image)
+{
+    $path = product_image_absolute_path($image);
+    if ($path !== null) {
+        clearstatcache(true, $path);
+    }
+    if ($path === null || !is_file($path)) {
+        return $path !== null;
+    }
+    return unlink($path);
 }
 
 function format_price($amount)

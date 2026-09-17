@@ -39,6 +39,16 @@ function validate_product_input($is_create, $product_id = 0)
         return [false, 'Please fill in all required fields.', null];
     }
 
+    if (strlen($code) > 100) {
+        return [false, 'Product code must not exceed 100 characters.', null];
+    }
+    if (strlen($barcode) > 100) {
+        return [false, 'Barcode must not exceed 100 characters.', null];
+    }
+    if (strlen($name) > 255) {
+        return [false, 'Product name must not exceed 255 characters.', null];
+    }
+
     if (!is_numeric($price_raw) || (float) $price_raw < 0) {
         return [false, 'Selling price must be a number greater than or equal to 0.', null];
     }
@@ -83,6 +93,12 @@ function validate_product_input($is_create, $product_id = 0)
         if (!$brand) {
             return [false, 'Selected brand does not exist.', null];
         }
+        if ($is_create && $brand['status'] !== 'active') {
+            return [false, 'Selected brand must be active.', null];
+        }
+        if (!$is_create && $brand['status'] !== 'active' && (int) $existing['brand_id'] !== $brand_id) {
+            return [false, 'Selected brand must be active.', null];
+        }
         $brand_id_val = $brand_id;
     }
 
@@ -94,6 +110,7 @@ function validate_product_input($is_create, $product_id = 0)
         'brand_id' => $brand_id_val,
         'unit_id' => $unit_id,
         'description' => $description !== '' ? $description : null,
+        'image' => $existing['image'] ?? null,
         'selling_price' => round((float) $price_raw, 2),
         'status' => $status,
     ];
@@ -110,8 +127,18 @@ if ($action === 'create') {
         redirect('/products/add.php');
     }
 
+    list($image_ok, $image_message, $new_image) = store_product_image_upload($_FILES['image'] ?? []);
+    if (!$image_ok) {
+        set_flash('error', $image_message);
+        redirect('/products/add.php');
+    }
+    $data['image'] = $new_image;
+
     $id = create_product($data);
     if (!$id) {
+        if ($new_image !== null) {
+            delete_product_image_file($new_image);
+        }
         set_flash('error', 'Unable to create product.');
         redirect('/products/add.php');
     }
@@ -119,6 +146,9 @@ if ($action === 'create') {
     ensure_inventory_record($id);
     clear_old_input();
     record_activity_log(get_current_user_id(), 'create', 'products', 'Created product ' . $data['product_name'] . ' (' . $data['product_code'] . ')');
+    if ($new_image !== null) {
+        record_activity_log(get_current_user_id(), 'image_upload', 'products', 'Uploaded image for product #' . $id . ' ' . $data['product_name']);
+    }
     record_activity_log(get_current_user_id(), 'init', 'inventory', 'Initialized inventory for ' . $data['product_name']);
     set_flash('success', 'Product created successfully.');
     redirect('/products/index.php');
@@ -140,7 +170,19 @@ if ($action === 'update') {
         redirect('/products/edit.php?id=' . $product_id);
     }
 
+    list($image_ok, $image_message, $new_image) = store_product_image_upload($_FILES['image'] ?? []);
+    if (!$image_ok) {
+        set_flash('error', $image_message);
+        redirect('/products/edit.php?id=' . $product_id);
+    }
+    if ($new_image !== null) {
+        $data['image'] = $new_image;
+    }
+
     if (!update_product($product_id, $data)) {
+        if ($new_image !== null) {
+            delete_product_image_file($new_image);
+        }
         set_flash('error', 'Unable to update product.');
         redirect('/products/edit.php?id=' . $product_id);
     }
@@ -151,8 +193,47 @@ if ($action === 'update') {
         $log .= ' status: ' . $data['status'];
     }
     record_activity_log(get_current_user_id(), 'update', 'products', $log);
+    if ($item['status'] !== $data['status']) {
+        $status_action = $data['status'] === 'active' ? 'activate' : 'deactivate';
+        record_activity_log(get_current_user_id(), $status_action, 'products',
+            ucfirst($status_action) . 'd product #' . $product_id . ' ' . $data['product_name']);
+    }
+    if ($new_image !== null) {
+        delete_product_image_file($item['image']);
+        record_activity_log(get_current_user_id(), $item['image'] ? 'image_replace' : 'image_upload', 'products',
+            ($item['image'] ? 'Replaced' : 'Uploaded') . ' image for product #' . $product_id . ' ' . $data['product_name']);
+    }
     set_flash('success', 'Product updated successfully.');
     redirect('/products/index.php');
+}
+
+if ($action === 'remove_image') {
+    require_permission('products.manage');
+    $product_id = (int) ($_POST['product_id'] ?? 0);
+    $item = get_product_by_id($product_id);
+    if (!$item) {
+        set_flash('error', 'Product not found.');
+        redirect('/products/index.php');
+    }
+    if (!$item['image']) {
+        set_flash('error', 'Product has no image to remove.');
+        redirect('/products/edit.php?id=' . $product_id);
+    }
+
+    if (!update_product_image($product_id, null)) {
+        set_flash('error', 'Unable to remove product image.');
+        redirect('/products/edit.php?id=' . $product_id);
+    }
+
+    if (!delete_product_image_file($item['image'])) {
+        update_product_image($product_id, $item['image']);
+        set_flash('error', 'Unable to remove the stored product image.');
+        redirect('/products/edit.php?id=' . $product_id);
+    }
+    record_activity_log(get_current_user_id(), 'image_remove', 'products',
+        'Removed image from product #' . $product_id . ' ' . $item['product_name']);
+    set_flash('success', 'Product image removed.');
+    redirect('/products/edit.php?id=' . $product_id);
 }
 
 if ($action === 'activate' || $action === 'deactivate') {

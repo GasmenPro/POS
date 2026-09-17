@@ -192,6 +192,27 @@ CREATE TABLE IF NOT EXISTS units (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
+-- suppliers (Phase 9)
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS suppliers (
+    supplier_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    supplier_code VARCHAR(50) NOT NULL,
+    supplier_name VARCHAR(255) NOT NULL,
+    contact_person VARCHAR(255) DEFAULT NULL,
+    phone VARCHAR(50) DEFAULT NULL,
+    email VARCHAR(255) DEFAULT NULL,
+    address TEXT DEFAULT NULL,
+    notes TEXT DEFAULT NULL,
+    status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (supplier_id),
+    UNIQUE KEY uq_suppliers_code (supplier_code),
+    KEY idx_suppliers_name (supplier_name),
+    KEY idx_suppliers_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
 -- products (Phase 5)
 -- --------------------------------------------------------
 CREATE TABLE IF NOT EXISTS products (
@@ -203,6 +224,7 @@ CREATE TABLE IF NOT EXISTS products (
     brand_id INT UNSIGNED DEFAULT NULL,
     unit_id INT UNSIGNED NOT NULL,
     description TEXT DEFAULT NULL,
+    image VARCHAR(255) DEFAULT NULL,
     selling_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
     status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -249,6 +271,7 @@ CREATE TABLE IF NOT EXISTS inventory (
 CREATE TABLE IF NOT EXISTS inventory_movements (
     movement_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     product_id INT UNSIGNED NOT NULL,
+    supplier_id INT UNSIGNED DEFAULT NULL,
     movement_type ENUM('stock_in', 'stock_out', 'adjustment') NOT NULL,
     quantity DECIMAL(12,3) NOT NULL,
     previous_quantity DECIMAL(12,3) NOT NULL,
@@ -259,11 +282,15 @@ CREATE TABLE IF NOT EXISTS inventory_movements (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (movement_id),
     KEY idx_movements_product_id (product_id),
+    KEY idx_movements_supplier_id (supplier_id),
     KEY idx_movements_type (movement_type),
     KEY idx_movements_created_by (created_by),
     KEY idx_movements_created_at (created_at),
     CONSTRAINT fk_movements_product
         FOREIGN KEY (product_id) REFERENCES products (product_id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_movements_supplier
+        FOREIGN KEY (supplier_id) REFERENCES suppliers (supplier_id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_movements_user
         FOREIGN KEY (created_by) REFERENCES users (id)
@@ -340,7 +367,10 @@ INSERT INTO permissions (code, name, description) VALUES
     ('inventory.manage', 'Manage Inventory', 'Stock in, stock out, and adjustments'),
     ('pos.view', 'View POS', 'Access the point-of-sale screen'),
     ('pos.manage', 'Manage POS', 'Add to cart and complete sales'),
-    ('sales.view', 'View Sales', 'View completed sales history')
+    ('sales.view', 'View Sales', 'View completed sales history'),
+    ('suppliers.view', 'View Suppliers', 'View supplier records'),
+    ('suppliers.manage', 'Manage Suppliers', 'Create and update suppliers'),
+    ('backup.manage', 'Manage Backups', 'Create, download, and restore database backups')
 ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description);
 
 INSERT INTO role_permissions (role_id, permission_id)

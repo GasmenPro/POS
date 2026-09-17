@@ -10,96 +10,127 @@ Point of Sale system for sari-sari stores and small groceries, built with proced
 
 ## Current Phase
 
-**Phase 7 — Basic POS** ✅ Complete
+**Phase 13 — Backup/Restore** ✅ Complete
 
 ## Completed Work
 
-### Phase 0–6
-- Foundation, authentication, user/role management, master data, products, inventory
+### Phases 0–12
 
-### Phase 7
-- Created `sales` and `sale_items` tables
-- Added `pos.view`, `pos.manage`, and `sales.view` permissions (Administrator only)
-- Session-based POS cart (add, increase/decrease, set quantity, remove, clear)
-- Product search for active in-stock products
-- Cash checkout with server-side price/total/payment validation
-- Unique sale number generation (`SALE-YYYYMMDD-NNNN`)
-- Transactional checkout with `SELECT ... FOR UPDATE` inventory locking
-- Stock deduction via existing `inventory` + `inventory_movements` (POS Sale)
-- Historical unit prices stored in `sale_items`
-- Sales history list and sale detail view
-- Activity logging for completed sales
-- Permission-gated sidebar links (Point of Sale, Sales History)
+- Foundation, database, authentication, RBAC, users, and roles
+- Categories, brands, units, products, inventory, POS, receipts, suppliers, advanced products, reports, and dashboard
 
-## Files Created (Phase 7)
+### Phase 13
+
+- Added an Administrator-only Backup & Restore page
+- Added verified SQL backup generation using XAMPP `mysqldump`
+- Added protected filesystem backup listing and authorized downloads
+- Added restore from application-managed backups using the XAMPP `mysql` client
+- Added mandatory pre-restore safety backups
+- Added exact restore confirmation and post-restore session invalidation
+- Added a server-side lock to prevent concurrent backup/restore operations
+- Added activity logging for backup creation/download and restore events
+- Protected the backup directory from direct Apache access and Git tracking
+
+## Files Created (Phase 13)
 
 ```
-includes/pos.php
-pos/index.php
-pos/process.php
-pos/sales.php
-database/migrations/007_basic_pos.sql
+backup/index.php
+backup/process.php
+backup/download.php
+includes/backup.php
+storage/backups/.htaccess
+storage/backups/.gitignore
+storage/backups/.gitkeep
+database/migrations/013_backup_restore.sql
 ```
 
-## Files Modified (Phase 7)
+## Files Modified (Phase 13)
 
 ```
 database/database.sql
 includes/sidebar.php
 AI_PROGRESS.md
 DATABASE_STATUS.md
+README.md
 ```
 
-## Database Tables Added
+## Database Changes
 
-| Table | Purpose |
-|-------|---------|
-| `sales` | Completed sale header (totals, payment, change, cashier) |
-| `sale_items` | Line items with quantity and historical unit price |
+- Added permission `backup.manage`
+- Assigned `backup.manage` to Administrator only
+- No database tables or columns were added
+- Live schema remains at 17 tables; permission count is now 22
 
-## Permissions Added
+## Backup and Restore Behavior
 
-| Code | Administrator | Staff |
-|------|---------------|-------|
-| `pos.view` | ✅ | — |
-| `pos.manage` | ✅ | — |
-| `sales.view` | ✅ | — |
+- Backups are SQL dumps stored in `storage/backups/`
+- Filenames are generated server-side with a timestamp and random suffix
+- Completed dumps must be non-empty and contain expected application structures
+- Only verified files matching the managed filename format are listed or downloadable
+- Restore accepts only verified backups from the managed directory
+- A verified `pre_restore_*.sql` safety backup must succeed before the restore command starts
+- A failed restore preserves the safety backup; automatic recovery is not attempted
+- A successful restore destroys the current session and requires a new login
 
-## Features Implemented
+## Security
 
-- POS screen: product search, cart, cash checkout
-- Cart stored in PHP session; cleared only after successful checkout
-- Server-side recalculation of prices, line totals, subtotal, and change
-- Checkout rejects insufficient payment, inactive products, and insufficient stock
-- Sale items preserve `unit_price` at time of sale
-- Inventory deducted atomically with `stock_out` movements (`reference_no` = sale number)
-- Sales history with search and per-sale item detail view
+- Authentication and dedicated `backup.manage` permission
+- CSRF protection on create and restore actions
+- Exact `RESTORE` phrase and acknowledgement checkbox
+- Process argument arrays with shell bypass; no browser input enters commands
+- Temporary MySQL client option file keeps credentials off command lines and is deleted after use
+- Strict filename pattern, basename check, real-path containment, and regular-file checks
+- Authorized server-side downloads with no direct SQL-file access
+- Apache `Require all denied` protection and disabled directory indexes
+- Non-blocking file lock prevents simultaneous backup/restore operations
+- Failed and incomplete dumps are removed
+- Raw command errors, credentials, and physical paths are not shown to users or written to activity descriptions
 
-## Testing Performed (Phase 7)
+## Environment Requirements
 
-| Test | Result |
+- PHP `proc_open` must be enabled
+- XAMPP `mysqldump` and `mysql` utilities must exist under the checked XAMPP installation
+- `storage/backups/` must be writable by Apache
+- Apache must allow the included `.htaccess`; direct-directory and direct-file denial were verified locally
+
+## Testing Performed (Phase 13)
+
+| Area | Result |
 |------|--------|
-| `sales` + `sale_items` tables and permissions | ✅ Pass |
-| Guest/staff blocked; admin allowed | ✅ Pass |
-| Cart add/inc/dec/set/remove/clear/subtotal | ✅ Pass |
-| Checkout totals (80 total, 100 payment, 20 change) | ✅ Pass |
-| Inventory deduction (A: 10→6, B: 10→7 after two sales) | ✅ Pass |
-| POS inventory movements logged | ✅ Pass |
-| Insufficient payment rejected; cart preserved | ✅ Pass |
-| Insufficient stock rejected; no deduction | ✅ Pass |
-| Stock revalidation at checkout | ✅ Pass |
-| Price revalidation at checkout | ✅ Pass |
-| Historical price preserved after product price change | ✅ Pass |
-| Activity logs | ✅ Pass |
-| Sales history access | ✅ Pass |
-| Phase 1–6 regression | ✅ Pass |
+| Guest, Staff, no-role, and Administrator access | ✅ Pass |
+| Administrator-only `backup.manage` assignment | ✅ Pass |
+| CSRF enforcement for backup and restore | ✅ Pass |
+| Two unique, valid backups created | ✅ Pass |
+| File size and SQL structure/data validation | ✅ Pass |
+| Failed backup cleanup and listing exclusion | ✅ Pass |
+| Unrelated-file filtering and filename validation | ✅ Pass |
+| Path traversal and arbitrary-file download blocking | ✅ Pass |
+| Authorized download and attachment headers | ✅ Pass |
+| Direct directory and SQL-file web access denied | ✅ Pass |
+| Exact restore confirmation and managed-file checks | ✅ Pass |
+| Safety-backup failure leaves live data unchanged | ✅ Pass |
+| Verified pre-restore safety backup generation | ✅ Pass |
+| Concurrent-operation lock | ✅ Pass |
+| Full SQL restore into temporary test database | ✅ Pass |
+| Restored 17-table schema and expected data | ✅ Pass |
+| Restore command failure detection | ✅ Pass |
+| Backup/download/failed-restore activity logs | ✅ Pass |
+| Credential and physical-path leakage checks | ✅ Pass |
+| Core module, dashboard, receipt, and logout regression | ✅ Pass |
+| All project PHP files syntax check | ✅ Pass |
+
+**Focused automated result: 52 passed, 0 failed.**
+
+## Restore Testing Limitation
+
+The full restore command was tested against a temporary database and the temporary database was removed afterward. The live `pos_db` was not restored or dropped. The live controller's safety-backup ordering, validation, failure handling, activity logging, and session invalidation were inspected and tested through non-destructive paths; a destructive live restore was intentionally not executed.
 
 ## Known Issues
 
-None for Phase 7.
+None for Phase 13.
 
 ## Exact Next Task
 
-**PHASE 8 — RECEIPTS**
+**PHASE 14 — OFFLINE POS**
 
-Implement receipt printing/templates for completed sales.
+Do not begin until explicitly requested.
