@@ -12,7 +12,35 @@ require_once BASE_PATH . '/config/database.php';
  */
 function is_logged_in()
 {
-    return !empty($_SESSION['user_id']);
+    $user_id = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : 0;
+    if ($user_id <= 0) {
+        return false;
+    }
+
+    static $checked_user_id = null;
+    static $active = false;
+    if ($checked_user_id === $user_id) {
+        return $active;
+    }
+
+    $checked_user_id = $user_id;
+    $active = false;
+    $db = get_db_connection();
+    if (!$db) {
+        return false;
+    }
+
+    $status = 'active';
+    $stmt = $db->prepare('SELECT id FROM users WHERE id = ? AND status = ? LIMIT 1');
+    if (!$stmt) {
+        return false;
+    }
+    $stmt->bind_param('is', $user_id, $status);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $active = $result && $result->num_rows === 1;
+    $stmt->close();
+    return $active;
 }
 
 /**
@@ -23,6 +51,9 @@ function is_logged_in()
 function require_auth()
 {
     if (!is_logged_in()) {
+        if (!empty($_SESSION['user_id'])) {
+            logout_user();
+        }
         set_flash('error', 'Please log in to continue.');
         redirect('/login.php');
     }
@@ -113,7 +144,8 @@ function user_has_permission($permission_code)
             FROM permissions p
             INNER JOIN role_permissions rp ON rp.permission_id = p.id
             INNER JOIN user_roles ur ON ur.role_id = rp.role_id
-            WHERE ur.user_id = ? AND p.code = ?
+            INNER JOIN users u ON u.id = ur.user_id
+            WHERE ur.user_id = ? AND p.code = ? AND u.status = ?
             LIMIT 1';
 
     $stmt = $db->prepare($sql);
@@ -121,7 +153,8 @@ function user_has_permission($permission_code)
         return false;
     }
 
-    $stmt->bind_param('is', $user_id, $permission_code);
+    $status = 'active';
+    $stmt->bind_param('iss', $user_id, $permission_code, $status);
     $stmt->execute();
     $result = $stmt->get_result();
     $found = $result && $result->num_rows > 0;
@@ -207,6 +240,7 @@ function find_user_by_login($login)
 function login_user($user)
 {
     session_regenerate_id(true);
+    unset($_SESSION['csrf_token']);
 
     $_SESSION['user_id'] = (int) $user['id'];
     $_SESSION['username'] = $user['username'];
@@ -279,13 +313,13 @@ function record_login_log($user_id, $status)
  * @param string $action
  * @param string $module
  * @param string|null $description
- * @return void
+ * @return bool
  */
 function record_activity_log($user_id, $action, $module, $description = null)
 {
     $db = get_db_connection();
     if (!$db) {
-        return;
+        return false;
     }
 
     $ip = get_client_ip();
@@ -295,10 +329,11 @@ function record_activity_log($user_id, $action, $module, $description = null)
             VALUES (?, ?, ?, ?, ?, ?)';
     $stmt = $db->prepare($sql);
     if (!$stmt) {
-        return;
+        return false;
     }
 
     $stmt->bind_param('isssss', $user_id, $action, $module, $description, $ip, $ua);
-    $stmt->execute();
+    $ok = $stmt->execute();
     $stmt->close();
+    return $ok;
 }

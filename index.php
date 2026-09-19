@@ -24,52 +24,52 @@ require_once BASE_PATH . '/includes/header.php';
 require_once BASE_PATH . '/includes/sidebar.php';
 ?>
 
-<main class="col-md-9 col-lg-10 p-4">
+<main class="col-md-9 col-lg-10 p-4 dashboard-page">
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
             <h1 class="h3 mb-1">Dashboard</h1>
             <p class="text-muted mb-0">Welcome, <?php echo e($user['first_name']); ?>. <?php echo e(date('l, F j, Y')); ?></p>
         </div>
-        <a href="<?php echo e(BASE_URL); ?>/account.php" class="btn btn-outline-secondary">My Account</a>
+        <a href="<?php echo e(BASE_URL); ?>/account.php" class="btn btn-outline-secondary"><i class="bi bi-person-circle" aria-hidden="true"></i> My Account</a>
     </div>
 
     <?php if ($can_sales || $can_inventory || $can_suppliers): ?>
     <div class="row g-3 mb-4">
         <?php if ($can_sales): ?>
-        <div class="col-sm-6 col-xl-3"><div class="card h-100 border-primary"><div class="card-body">
-            <div class="text-muted small">Today's Sales</div>
-            <div class="h3 mb-1"><?php echo e(report_money($sales_summary['total_sales'])); ?></div>
+        <div class="col-sm-6 col-xl-3"><div class="card h-100 metric-card metric-primary"><div class="card-body">
+            <div class="metric-label">Today's Sales</div>
+            <div class="metric-value money"><?php echo e(report_money($sales_summary['total_sales'])); ?></div>
             <div class="small"><?php echo (int) $sales_summary['sale_count']; ?> completed sale(s)</div>
         </div></div></div>
-        <div class="col-sm-6 col-xl-3"><div class="card h-100"><div class="card-body">
-            <div class="text-muted small">Today's Cash Received</div>
-            <div class="h3 mb-1"><?php echo e(report_money($sales_summary['cash_received'])); ?></div>
+        <div class="col-sm-6 col-xl-3"><div class="card h-100 metric-card"><div class="card-body">
+            <div class="metric-label">Today's Cash Received</div>
+            <div class="metric-value money"><?php echo e(report_money($sales_summary['cash_received'])); ?></div>
             <div class="small">Change: <?php echo e(report_money($sales_summary['change_amount'])); ?></div>
         </div></div></div>
         <?php endif; ?>
 
         <?php if ($can_inventory): ?>
-        <div class="col-sm-6 col-xl-3"><div class="card h-100"><div class="card-body">
-            <div class="text-muted small">Active Products With Inventory</div>
-            <div class="h3 mb-1"><?php echo (int) $inventory_summary['active_product_count']; ?></div>
+        <div class="col-sm-6 col-xl-3"><div class="card h-100 metric-card"><div class="card-body">
+            <div class="metric-label">Active Products With Inventory</div>
+            <div class="metric-value"><?php echo (int) $inventory_summary['active_product_count']; ?></div>
             <div class="small"><?php echo e(format_qty($inventory_summary['total_quantity'])); ?> total quantity on hand</div>
         </div></div></div>
-        <div class="col-sm-6 col-xl-3"><div class="card h-100 border-warning"><div class="card-body">
-            <div class="text-muted small">Low Stock</div>
-            <div class="h3 mb-1"><?php echo (int) $inventory_summary['low_stock_count']; ?></div>
+        <div class="col-sm-6 col-xl-3"><div class="card h-100 metric-card metric-warning"><div class="card-body">
+            <div class="metric-label">Low Stock</div>
+            <div class="metric-value"><?php echo (int) $inventory_summary['low_stock_count']; ?></div>
             <div class="small">Active products at reorder level</div>
         </div></div></div>
-        <div class="col-sm-6 col-xl-3"><div class="card h-100 border-danger"><div class="card-body">
-            <div class="text-muted small">Out of Stock</div>
-            <div class="h3 mb-1"><?php echo (int) $inventory_summary['out_of_stock_count']; ?></div>
+        <div class="col-sm-6 col-xl-3"><div class="card h-100 metric-card metric-danger"><div class="card-body">
+            <div class="metric-label">Out of Stock</div>
+            <div class="metric-value"><?php echo (int) $inventory_summary['out_of_stock_count']; ?></div>
             <div class="small">Active products with zero stock</div>
         </div></div></div>
         <?php endif; ?>
 
         <?php if ($can_suppliers): ?>
-        <div class="col-sm-6 col-xl-3"><div class="card h-100"><div class="card-body">
-            <div class="text-muted small">Active Suppliers</div>
-            <div class="h3 mb-1"><?php echo (int) $supplier_summary['active_count']; ?></div>
+        <div class="col-sm-6 col-xl-3"><div class="card h-100 metric-card"><div class="card-body">
+            <div class="metric-label">Active Suppliers</div>
+            <div class="metric-value"><?php echo (int) $supplier_summary['active_count']; ?></div>
             <div class="small"><?php echo (int) $supplier_summary['inactive_count']; ?> inactive</div>
         </div></div></div>
         <?php endif; ?>
@@ -79,13 +79,13 @@ require_once BASE_PATH . '/includes/sidebar.php';
     <div class="card mb-4"><div class="card-body">
         <h2 class="h5 mb-3">Quick Actions</h2>
         <div class="d-flex flex-wrap gap-2">
-            <?php if (user_has_permission('products.manage')): ?><a href="<?php echo e(BASE_URL); ?>/products/add.php" class="btn btn-outline-primary">Add Product</a><?php endif; ?>
+            <?php if (user_has_permission('products.manage')): ?><a href="<?php echo e(BASE_URL); ?>/products/add.php" class="btn btn-outline-primary"><i class="bi bi-plus-circle" aria-hidden="true"></i> Add Product</a><?php endif; ?>
             <?php if (user_has_permission('inventory.manage')): ?>
-                <a href="<?php echo e(BASE_URL); ?>/inventory/stock_in.php" class="btn btn-outline-success">Stock In</a>
-                <a href="<?php echo e(BASE_URL); ?>/inventory/stock_out.php" class="btn btn-outline-warning">Stock Out</a>
+                <a href="<?php echo e(BASE_URL); ?>/inventory/stock_in.php" class="btn btn-outline-success"><i class="bi bi-box-arrow-in-down" aria-hidden="true"></i> Stock In</a>
+                <a href="<?php echo e(BASE_URL); ?>/inventory/stock_out.php" class="btn btn-outline-warning"><i class="bi bi-box-arrow-up" aria-hidden="true"></i> Stock Out</a>
                 <a href="<?php echo e(BASE_URL); ?>/inventory/adjust.php" class="btn btn-outline-secondary">Adjust Inventory</a>
             <?php endif; ?>
-            <?php if (user_has_permission('pos.view')): ?><a href="<?php echo e(BASE_URL); ?>/pos/index.php" class="btn btn-primary">Open POS</a><?php endif; ?>
+            <?php if (user_has_permission('pos.view')): ?><a href="<?php echo e(BASE_URL); ?>/pos/index.php" class="btn btn-primary"><i class="bi bi-cart3" aria-hidden="true"></i> Open POS</a><?php endif; ?>
             <?php if ($can_sales): ?><a href="<?php echo e(BASE_URL); ?>/pos/sales.php" class="btn btn-outline-primary">View Sales</a><?php endif; ?>
             <?php if ($can_suppliers): ?><a href="<?php echo e(BASE_URL); ?>/suppliers/index.php" class="btn btn-outline-primary">Manage Suppliers</a><?php endif; ?>
             <?php if (user_can_view_any_report()): ?><a href="<?php echo e(BASE_URL); ?>/reports/index.php" class="btn btn-outline-dark">View Reports</a><?php endif; ?>

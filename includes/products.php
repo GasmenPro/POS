@@ -397,7 +397,7 @@ function update_product_image($id, $image)
 
 function product_image_directory()
 {
-    return BASE_PATH . '/assets/uploads/products';
+    return PRODUCT_UPLOAD_PATH;
 }
 
 function is_safe_product_image_path($image)
@@ -411,7 +411,7 @@ function product_image_url($image)
     if (!is_safe_product_image_path($image)) {
         return null;
     }
-    return BASE_URL . '/assets/uploads/products/' . rawurlencode(basename($image));
+    return PRODUCT_UPLOAD_URL . '/' . rawurlencode(basename($image));
 }
 
 function product_image_absolute_path($image)

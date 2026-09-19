@@ -13,7 +13,7 @@ $user_id = get_current_user_id();
 
 if ($action === 'checkout') {
     require_permission('pos.manage');
-    $payment = (float) ($_POST['payment_amount'] ?? 0);
+    $payment = $_POST['payment_amount'] ?? null;
 
     list($ok, $message, $sale_id, $sale_no) = process_pos_checkout($payment, $user_id);
     if ($ok) {
@@ -26,10 +26,20 @@ if ($action === 'checkout') {
 
 require_permission('pos.manage');
 
-$product_id = (int) ($_POST['product_id'] ?? 0);
+$product_id = filter_var($_POST['product_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+if ($action !== 'clear' && $product_id === false) {
+    set_flash('error', 'Invalid product selected.');
+    redirect('/pos/index.php');
+}
+$product_id = $product_id === false ? 0 : (int) $product_id;
 
 if ($action === 'add') {
-    $qty = (float) ($_POST['quantity'] ?? 1);
+    $qty_raw = $_POST['quantity'] ?? 1;
+    if (!is_numeric($qty_raw) || !is_finite((float) $qty_raw) || (float) $qty_raw <= 0) {
+        set_flash('error', 'Quantity must be a valid number greater than 0.');
+        redirect('/pos/index.php');
+    }
+    $qty = (float) $qty_raw;
     list($ok, $message) = pos_add_to_cart($product_id, $qty);
     set_flash($ok ? 'success' : 'error', $ok ? 'Product added to cart.' : $message);
     redirect('/pos/index.php' . (isset($_POST['q']) ? '?q=' . urlencode(trim($_POST['q'])) : ''));
@@ -48,7 +58,12 @@ if ($action === 'dec') {
 }
 
 if ($action === 'set_qty') {
-    $qty = (float) ($_POST['quantity'] ?? 0);
+    $qty_raw = $_POST['quantity'] ?? null;
+    if (!is_numeric($qty_raw) || !is_finite((float) $qty_raw) || (float) $qty_raw <= 0) {
+        set_flash('error', 'Quantity must be a valid number greater than 0.');
+        redirect('/pos/index.php');
+    }
+    $qty = (float) $qty_raw;
     list($ok, $message) = pos_set_cart_quantity($product_id, $qty);
     set_flash($ok ? 'success' : 'error', $ok ? 'Quantity updated.' : $message);
     redirect('/pos/index.php');

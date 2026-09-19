@@ -23,7 +23,7 @@ require_once BASE_PATH . '/includes/sidebar.php';
         <div><a href="<?php echo e(report_export_link('sales')); ?>" class="btn btn-success">Export CSV</a> <a href="<?php echo e(BASE_URL); ?>/reports/index.php" class="btn btn-outline-secondary">Reports</a></div>
     </div>
     <?php if (!$range['valid']): ?><div class="alert alert-danger"><?php echo e($range['message']); ?></div><?php endif; ?>
-    <form method="get" class="card card-body mb-3"><div class="row g-2 align-items-end">
+    <form method="get" class="card card-body mb-3 filter-bar"><div class="row g-2 align-items-end">
         <div class="col-md-3"><label class="form-label">Date From</label><input type="date" name="date_from" class="form-control" value="<?php echo e($date_from); ?>"></div>
         <div class="col-md-3"><label class="form-label">Date To</label><input type="date" name="date_to" class="form-control" value="<?php echo e($date_to); ?>"></div>
         <div class="col-md-4"><label class="form-label">Search</label><input type="text" name="q" class="form-control" value="<?php echo e($search); ?>" placeholder="Sale no. or cashier"></div>

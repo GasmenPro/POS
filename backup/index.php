@@ -25,7 +25,7 @@ require_once BASE_PATH . '/includes/sidebar.php';
         <form method="post" action="<?php echo e(BASE_URL); ?>/backup/process.php">
             <?php csrf_field(); ?>
             <input type="hidden" name="action" value="create">
-            <button type="submit" class="btn btn-primary" <?php echo $environment_ready ? '' : 'disabled'; ?>>Create Backup</button>
+            <button type="submit" class="btn btn-primary" <?php echo $environment_ready ? '' : 'disabled'; ?>><i class="bi bi-database-add" aria-hidden="true"></i> Create Backup</button>
         </form>
     </div>
 
@@ -38,7 +38,7 @@ require_once BASE_PATH . '/includes/sidebar.php';
         <div class="alert alert-success py-2 mb-3">Backup storage and XAMPP database utilities are ready.</div>
     <?php endif; ?>
 
-    <div class="alert alert-warning">
+    <div class="alert alert-warning danger-zone">
         <strong>Restore warning:</strong> Restoring a backup will replace the current database state. A fresh safety backup is created before restoration, and you will be signed out after a successful restore.
     </div>
 
@@ -72,8 +72,8 @@ require_once BASE_PATH . '/includes/sidebar.php';
                             </span>
                         </td>
                         <td class="text-nowrap">
-                            <a class="btn btn-sm btn-outline-primary" href="<?php echo e(BASE_URL); ?>/backup/download.php?file=<?php echo rawurlencode($backup['filename']); ?>">Download</a>
-                            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="collapse" data-bs-target="#restore-<?php echo e(md5($backup['filename'])); ?>">Restore</button>
+                            <a class="btn btn-sm btn-outline-primary" href="<?php echo e(BASE_URL); ?>/backup/download.php?file=<?php echo rawurlencode($backup['filename']); ?>"><i class="bi bi-download" aria-hidden="true"></i> Download</a>
+                            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="collapse" data-bs-target="#restore-<?php echo e(md5($backup['filename'])); ?>" aria-expanded="false" aria-controls="restore-<?php echo e(md5($backup['filename'])); ?>"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Restore</button>
                         </td>
                     </tr>
                     <tr class="collapse" id="restore-<?php echo e(md5($backup['filename'])); ?>">

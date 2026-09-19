@@ -25,7 +25,7 @@ require_once BASE_PATH . '/includes/sidebar.php';
             <p class="text-muted mb-0">Completed sales and item details.</p>
         </div>
         <?php if (user_has_permission('pos.view')): ?>
-            <a href="<?php echo e(BASE_URL); ?>/pos/index.php" class="btn btn-primary">Point of Sale</a>
+            <a href="<?php echo e(BASE_URL); ?>/pos/index.php" class="btn btn-primary"><i class="bi bi-cart3" aria-hidden="true"></i> Point of Sale</a>
         <?php endif; ?>
     </div>
 
@@ -85,7 +85,7 @@ require_once BASE_PATH . '/includes/sidebar.php';
     </div>
     <?php endif; ?>
 
-    <form method="get" class="row g-2 mb-3">
+    <form method="get" class="row g-2 mb-3 filter-bar">
         <div class="col-md-4">
             <input type="text" name="q" class="form-control" placeholder="Search sale no. or cashier..." value="<?php echo e($search); ?>">
         </div>

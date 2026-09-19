@@ -24,7 +24,7 @@ require_once BASE_PATH . '/includes/sidebar.php';
         <div><a href="<?php echo e(report_export_link('inventory')); ?>" class="btn btn-success">Export CSV</a> <a href="<?php echo e(BASE_URL); ?>/reports/index.php" class="btn btn-outline-secondary">Reports</a></div>
     </div>
     <div class="alert alert-info py-2">Potential Sales Value is current quantity × selling price. It is not purchase cost or profit.</div>
-    <form method="get" class="card card-body mb-3"><div class="row g-2 align-items-end">
+    <form method="get" class="card card-body mb-3 filter-bar"><div class="row g-2 align-items-end">
         <div class="col-md-3"><label class="form-label">Search</label><input type="text" name="q" class="form-control" value="<?php echo e($filters['search']); ?>" placeholder="Code, barcode, or name"></div>
         <div class="col-md-3"><label class="form-label">Category</label><select name="category_id" class="form-select"><option value="">All categories</option><?php foreach ($categories as $category): ?><option value="<?php echo (int) $category['category_id']; ?>" <?php echo $filters['category_id'] === (int) $category['category_id'] ? 'selected' : ''; ?>><?php echo e($category['category_name']); ?></option><?php endforeach; ?></select></div>
         <div class="col-md-2"><label class="form-label">Stock Status</label><select name="stock_status" class="form-select"><option value="">All</option><?php foreach (['Out of Stock', 'Low Stock', 'In Stock'] as $status): ?><option value="<?php echo e($status); ?>" <?php echo $filters['stock_status'] === $status ? 'selected' : ''; ?>><?php echo e($status); ?></option><?php endforeach; ?></select></div>

@@ -3,6 +3,8 @@ require_once dirname(__DIR__) . '/config/config.php';
 require_once dirname(__DIR__) . '/includes/auth.php';
 require_once dirname(__DIR__) . '/includes/reports.php';
 
+require_auth();
+
 $type = $_GET['type'] ?? '';
 
 if ($type === 'sales') {

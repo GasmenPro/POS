@@ -1,0 +1,10 @@
+{
+  "name": "Sari-Sari Store Offline POS",
+  "short_name": "Offline POS",
+  "start_url": "./pos/offline.php",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fff7ed",
+  "theme_color": "#b45309",
+  "description": "Offline-capable cashier page for pending Sari-Sari Store POS sales."
+}

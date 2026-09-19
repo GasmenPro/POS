@@ -52,7 +52,14 @@ function get_submitted_permissions()
     if (!is_array($permissions)) {
         return [];
     }
-    return array_map('intval', $permissions);
+    $ids = [];
+    foreach ($permissions as $permission_id) {
+        if ((is_int($permission_id) || is_string($permission_id))
+            && filter_var($permission_id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) !== false) {
+            $ids[] = (int) $permission_id;
+        }
+    }
+    return array_values(array_unique($ids));
 }
 
 function handle_create_role()
@@ -128,6 +135,21 @@ function handle_update_role()
         save_old_input();
         set_flash('error', 'Role name already exists.');
         redirect('/roles/edit.php?id=' . $role_id);
+    }
+
+    if ($role['name'] === 'Administrator') {
+        $roles_manage_id = null;
+        foreach (get_all_permissions() as $permission) {
+            if ($permission['code'] === 'roles.manage') {
+                $roles_manage_id = (int) $permission['id'];
+                break;
+            }
+        }
+        if ($roles_manage_id === null || !in_array($roles_manage_id, $permission_ids, true)) {
+            save_old_input();
+            set_flash('error', 'The Administrator role must retain Role Management permission.');
+            redirect('/roles/edit.php?id=' . $role_id);
+        }
     }
 
     if (!update_role($role_id, $name, $description !== '' ? $description : null)) {

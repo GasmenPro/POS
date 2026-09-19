@@ -48,7 +48,7 @@ if ($action === 'update') {
     $desc = trim($_POST['description'] ?? '');
     $status = $_POST['status'] ?? 'active';
     $_SESSION['old_input'] = $_POST;
-    if (!$item || $name === '' || $code === '') {
+    if (!$item || $name === '' || $code === '' || !in_array($status, ['active', 'inactive'], true)) {
         set_flash('error', 'Invalid unit data.');
         redirect('/units/index.php');
     }

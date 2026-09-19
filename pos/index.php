@@ -21,14 +21,14 @@ require_once BASE_PATH . '/includes/header.php';
 require_once BASE_PATH . '/includes/sidebar.php';
 ?>
 
-<main class="col-md-9 col-lg-10 p-4">
+<main class="col-md-9 col-lg-10 p-4 pos-page">
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div>
             <h1 class="h3 mb-1">Point of Sale</h1>
             <p class="text-muted mb-0">Search products, build a cart, and checkout with cash payment.</p>
         </div>
         <?php if (user_has_permission('sales.view')): ?>
-            <a href="<?php echo e(BASE_URL); ?>/pos/sales.php" class="btn btn-outline-secondary">Sales History</a>
+            <a href="<?php echo e(BASE_URL); ?>/pos/sales.php" class="btn btn-outline-secondary"><i class="bi bi-clock-history" aria-hidden="true"></i> Sales History</a>
         <?php endif; ?>
     </div>
 
@@ -36,21 +36,23 @@ require_once BASE_PATH . '/includes/sidebar.php';
     <?php if ($error): ?><div class="alert alert-danger"><?php echo e($error); ?></div><?php endif; ?>
 
     <div class="row g-4">
-        <div class="col-lg-7">
-            <div class="card mb-3">
-                <div class="card-header">Product Search</div>
+        <div class="col-xl-7">
+            <div class="card mb-3 pos-products-card">
+                <div class="card-header"><i class="bi bi-search" aria-hidden="true"></i> Product Search</div>
                 <div class="card-body">
-                    <form method="get" class="row g-2 mb-3">
+                    <form method="get" class="row g-2 mb-2 filter-bar">
                         <div class="col-md-8">
-                            <input type="text" name="q" class="form-control" placeholder="Search code, barcode, or name..." value="<?php echo e($search); ?>" autofocus>
+                            <label for="pos-search" class="visually-hidden">Search products</label>
+                            <input type="search" name="q" id="pos-search" class="form-control form-control-lg pos-search-input" placeholder="Scan barcode or search code/name…" value="<?php echo e($search); ?>" autocomplete="off" data-pos-search autofocus>
                         </div>
                         <div class="col-auto">
-                            <button type="submit" class="btn btn-outline-secondary">Search</button>
+                            <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-search" aria-hidden="true"></i> Search</button>
                             <?php if ($search !== ''): ?>
                                 <a href="<?php echo e(BASE_URL); ?>/pos/index.php" class="btn btn-link">Clear</a>
                             <?php endif; ?>
                         </div>
                     </form>
+                    <p class="form-text mb-3"><kbd>F2</kbd> focuses product search.</p>
 
                     <div class="table-responsive">
                         <table class="table table-sm table-striped mb-0 align-middle">
@@ -70,10 +72,10 @@ require_once BASE_PATH . '/includes/sidebar.php';
                             <?php else: foreach ($products as $p): ?>
                                 <tr>
                                     <td><?php echo e($p['product_code']); ?></td>
-                                    <td><?php echo e($p['product_name']); ?></td>
+                                    <td class="fw-semibold"><?php echo e($p['product_name']); ?></td>
                                     <td><?php echo e($p['unit_name']); ?></td>
-                                    <td><?php echo e(format_money($p['selling_price'])); ?></td>
-                                    <td><?php echo e(format_qty($p['stock'])); ?></td>
+                                    <td class="money"><?php echo e(format_money($p['selling_price'])); ?></td>
+                                    <td class="stock-value"><?php echo e(format_qty($p['stock'])); ?></td>
                                     <?php if ($can_manage): ?>
                                     <td>
                                         <form method="post" action="<?php echo e(BASE_URL); ?>/pos/process.php" class="d-inline">
@@ -82,7 +84,7 @@ require_once BASE_PATH . '/includes/sidebar.php';
                                             <input type="hidden" name="product_id" value="<?php echo (int) $p['product_id']; ?>">
                                             <input type="hidden" name="quantity" value="1">
                                             <input type="hidden" name="q" value="<?php echo e($search); ?>">
-                                            <button type="submit" class="btn btn-sm btn-primary">Add</button>
+                                            <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-cart-plus" aria-hidden="true"></i> Add</button>
                                         </form>
                                     </td>
                                     <?php endif; ?>
@@ -95,10 +97,10 @@ require_once BASE_PATH . '/includes/sidebar.php';
             </div>
         </div>
 
-        <div class="col-lg-5">
-            <div class="card mb-3">
+        <div class="col-xl-5 pos-checkout-column">
+            <div class="card mb-3 pos-cart-card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <span>Cart</span>
+                    <span><i class="bi bi-cart3" aria-hidden="true"></i> Cart <span class="badge text-bg-primary ms-1"><?php echo count($cart); ?></span></span>
                     <?php if ($can_manage && !empty($cart)): ?>
                     <form method="post" action="<?php echo e(BASE_URL); ?>/pos/process.php" class="d-inline">
                         <?php csrf_field(); ?>
@@ -134,36 +136,37 @@ require_once BASE_PATH . '/includes/sidebar.php';
                                             <?php csrf_field(); ?>
                                             <input type="hidden" name="action" value="set_qty">
                                             <input type="hidden" name="product_id" value="<?php echo (int) $item['product_id']; ?>">
-                                            <input type="number" name="quantity" class="form-control form-control-sm" style="width:70px" min="0.001" step="any" value="<?php echo e(format_qty($item['quantity'])); ?>">
-                                            <button type="submit" class="btn btn-sm btn-outline-secondary">Set</button>
+                                            <label class="visually-hidden" for="cart-qty-<?php echo (int) $item['product_id']; ?>">Quantity for <?php echo e($item['product_name']); ?></label>
+                                            <input type="number" name="quantity" id="cart-qty-<?php echo (int) $item['product_id']; ?>" class="form-control form-control-sm quantity-input" min="0.001" step="any" value="<?php echo e(format_qty($item['quantity'])); ?>">
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary" title="Update quantity">Set</button>
                                         </form>
                                         <div class="btn-group btn-group-sm mt-1">
                                             <form method="post" action="<?php echo e(BASE_URL); ?>/pos/process.php" class="d-inline">
                                                 <?php csrf_field(); ?>
                                                 <input type="hidden" name="action" value="dec">
                                                 <input type="hidden" name="product_id" value="<?php echo (int) $item['product_id']; ?>">
-                                                <button type="submit" class="btn btn-outline-secondary">−</button>
+                                                <button type="submit" class="btn btn-outline-secondary" aria-label="Decrease <?php echo e($item['product_name']); ?> quantity">−</button>
                                             </form>
                                             <form method="post" action="<?php echo e(BASE_URL); ?>/pos/process.php" class="d-inline">
                                                 <?php csrf_field(); ?>
                                                 <input type="hidden" name="action" value="inc">
                                                 <input type="hidden" name="product_id" value="<?php echo (int) $item['product_id']; ?>">
-                                                <button type="submit" class="btn btn-outline-secondary">+</button>
+                                                <button type="submit" class="btn btn-outline-secondary" aria-label="Increase <?php echo e($item['product_name']); ?> quantity">+</button>
                                             </form>
                                         </div>
                                         <?php else: ?>
                                             <?php echo e(format_qty($item['quantity'])); ?>
                                         <?php endif; ?>
                                     </td>
-                                    <td><?php echo e(format_money($item['unit_price'])); ?></td>
-                                    <td><?php echo e(format_money($item['line_total'])); ?></td>
+                                    <td class="money"><?php echo e(format_money($item['unit_price'])); ?></td>
+                                    <td class="money fw-semibold"><?php echo e(format_money($item['line_total'])); ?></td>
                                     <?php if ($can_manage): ?>
                                     <td>
                                         <form method="post" action="<?php echo e(BASE_URL); ?>/pos/process.php">
                                             <?php csrf_field(); ?>
                                             <input type="hidden" name="action" value="remove">
                                             <input type="hidden" name="product_id" value="<?php echo (int) $item['product_id']; ?>">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">×</button>
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" aria-label="Remove <?php echo e($item['product_name']); ?> from cart" title="Remove item"><i class="bi bi-trash" aria-hidden="true"></i></button>
                                         </form>
                                     </td>
                                     <?php endif; ?>
@@ -176,14 +179,14 @@ require_once BASE_PATH . '/includes/sidebar.php';
             </div>
 
             <?php if ($can_manage): ?>
-            <div class="card">
-                <div class="card-header">Checkout</div>
+            <div class="card pos-total-panel">
+                <div class="card-header"><i class="bi bi-cash-coin" aria-hidden="true"></i> Checkout</div>
                 <div class="card-body">
-                    <dl class="row mb-3">
+                    <dl class="row mb-3 pos-totals">
                         <dt class="col-6">Subtotal</dt>
-                        <dd class="col-6 text-end" id="cart-subtotal"><?php echo e(format_money($subtotal)); ?></dd>
+                        <dd class="col-6 text-end money" id="cart-subtotal"><?php echo e(format_money($subtotal)); ?></dd>
                         <dt class="col-6">Total Amount</dt>
-                        <dd class="col-6 text-end fw-bold" id="cart-total"><?php echo e(format_money($subtotal)); ?></dd>
+                        <dd class="col-6 text-end pos-grand-total" id="cart-total"><?php echo e(format_money($subtotal)); ?></dd>
                     </dl>
 
                     <?php if (!empty($cart)): ?>
@@ -192,13 +195,14 @@ require_once BASE_PATH . '/includes/sidebar.php';
                         <input type="hidden" name="action" value="checkout">
                         <div class="mb-3">
                             <label for="payment_amount" class="form-label">Payment Amount (Cash)</label>
-                            <input type="number" name="payment_amount" id="payment_amount" class="form-control" min="0" step="0.01" required>
+                            <input type="number" name="payment_amount" id="payment_amount" class="form-control form-control-lg" min="0" step="0.01" inputmode="decimal" data-pos-payment required>
+                            <div class="form-text"><kbd>F4</kbd> focuses cash payment.</div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Change</label>
-                            <div class="form-control bg-light" id="change-display"><?php echo e(format_money(0)); ?></div>
+                            <div class="form-control form-control-lg bg-light pos-change" id="change-display" role="status" aria-live="polite"><?php echo e(format_money(0)); ?></div>
                         </div>
-                        <button type="submit" class="btn btn-success w-100">Complete Sale</button>
+                        <button type="submit" class="btn btn-success btn-lg w-100"><i class="bi bi-check2-circle" aria-hidden="true"></i> Complete Sale</button>
                     </form>
                     <?php else: ?>
                         <p class="text-muted mb-0">Add products to the cart before checkout.</p>

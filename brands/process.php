@@ -42,7 +42,7 @@ if ($action === 'update') {
     $desc = trim($_POST['description'] ?? '');
     $status = $_POST['status'] ?? 'active';
     $_SESSION['old_input'] = $_POST;
-    if (!$item || $name === '') {
+    if (!$item || $name === '' || !in_array($status, ['active', 'inactive'], true)) {
         set_flash('error', 'Invalid brand data.');
         redirect('/brands/index.php');
     }

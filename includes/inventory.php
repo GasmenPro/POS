@@ -295,8 +295,10 @@ function process_stock_in($product_id, $qty, $ref, $remarks, $user_id, $supplier
         }
 
         $supplier_text = $supplier ? ' from ' . $supplier['supplier_name'] : '';
-        record_activity_log($user_id, 'stock_in', 'inventory',
-            'Stock in ' . format_qty($qty) . ' for ' . $product['product_name'] . $supplier_text . ' (' . $prev . ' -> ' . $new . ')');
+        if (!record_activity_log($user_id, 'stock_in', 'inventory',
+            'Stock in ' . format_qty($qty) . ' for ' . $product['product_name'] . $supplier_text . ' (' . $prev . ' -> ' . $new . ')')) {
+            throw new Exception('Failed to record activity.');
+        }
 
         $db->commit();
         return [true, ''];
@@ -346,8 +348,10 @@ function process_stock_out($product_id, $qty, $ref, $remarks, $user_id)
             throw new Exception('Failed to record movement.');
         }
 
-        record_activity_log($user_id, 'stock_out', 'inventory',
-            'Stock out ' . format_qty($qty) . ' for ' . $product['product_name'] . ' (' . $prev . ' -> ' . $new . ')');
+        if (!record_activity_log($user_id, 'stock_out', 'inventory',
+            'Stock out ' . format_qty($qty) . ' for ' . $product['product_name'] . ' (' . $prev . ' -> ' . $new . ')')) {
+            throw new Exception('Failed to record activity.');
+        }
 
         $db->commit();
         return [true, ''];
@@ -395,8 +399,10 @@ function process_stock_adjustment($product_id, $new_qty, $remarks, $user_id)
             throw new Exception('Failed to record movement.');
         }
 
-        record_activity_log($user_id, 'adjustment', 'inventory',
-            'Adjusted ' . $product['product_name'] . ' (' . $prev . ' -> ' . $new . ', diff ' . format_qty($diff) . ')');
+        if (!record_activity_log($user_id, 'adjustment', 'inventory',
+            'Adjusted ' . $product['product_name'] . ' (' . $prev . ' -> ' . $new . ', diff ' . format_qty($diff) . ')')) {
+            throw new Exception('Failed to record activity.');
+        }
 
         $db->commit();
         return [true, ''];

@@ -29,10 +29,10 @@ require_once BASE_PATH . '/includes/sidebar.php';
 
 <main class="col-md-9 col-lg-10 p-4 receipt-page">
     <div class="receipt-actions d-flex justify-content-center gap-2 mb-3">
-        <button type="button" class="btn btn-primary" onclick="window.print()">Print Receipt</button>
-        <a href="<?php echo e(BASE_URL); ?>/pos/sales.php?id=<?php echo (int) $sale['sale_id']; ?>" class="btn btn-outline-secondary">Back to Sale</a>
+        <button type="button" class="btn btn-primary" onclick="window.print()"><i class="bi bi-printer" aria-hidden="true"></i> Print Receipt</button>
+        <a href="<?php echo e(BASE_URL); ?>/pos/sales.php?id=<?php echo (int) $sale['sale_id']; ?>" class="btn btn-outline-secondary"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Sale</a>
         <?php if (user_has_permission('pos.view')): ?>
-            <a href="<?php echo e(BASE_URL); ?>/pos/index.php" class="btn btn-outline-secondary">Point of Sale</a>
+            <a href="<?php echo e(BASE_URL); ?>/pos/index.php" class="btn btn-outline-secondary"><i class="bi bi-cart3" aria-hidden="true"></i> Point of Sale</a>
         <?php endif; ?>
     </div>
 

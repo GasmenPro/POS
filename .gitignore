@@ -1,0 +1,30 @@
+# Environment-specific secrets and local overrides
+.env
+.env.*
+!.env.example
+
+# Runtime logs and temporary files
+*.log
+*.tmp
+*.temp
+storage/logs/*
+!storage/logs/.gitignore
+!storage/logs/.gitkeep
+!storage/logs/.htaccess
+
+# Runtime backups and locks
+storage/backups/*
+!storage/backups/.gitignore
+!storage/backups/.gitkeep
+!storage/backups/.htaccess
+
+# User-uploaded product images
+assets/uploads/products/*
+!assets/uploads/products/.gitkeep
+
+# Common editor and operating-system artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo

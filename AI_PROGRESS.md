@@ -1,136 +1,151 @@
 # AI Progress — Sari-Sari Store POS
 
-## Project Name
+## Project
 
-Sari-Sari Store POS
+- **Name:** Sari-Sari Store POS
+- **Purpose:** Procedural PHP/MySQLi point-of-sale system for sari-sari stores and small groceries
+- **Release:** **1.0.0**
+- **Current phase:** **PHASE 18 — PRODUCTION READINESS** ✅ Complete
+- **Development state:** Planned development phases 0–18 are complete. No Phase 19 is planned.
 
-## Purpose
+## Phase 18 Scope Completed
 
-Point of Sale system for sari-sari stores and small groceries, built with procedural PHP, MySQLi, and Bootstrap 5.
+- Audited environment/database configuration, errors, logging, sessions, cookies, headers, HTTPS readiness, filesystem paths, protected directories, uploads, backup/restore, schema, utilities, Apache, PHP requirements, Offline POS/PWA, base paths, migrations, deployment, recovery, artifacts, performance, and data integrity.
+- Added environment-variable configuration while preserving local XAMPP defaults.
+- Added database-port support, connection timeout, generic database diagnostics, and required utf8mb4 initialization.
+- Added production-safe debug behavior, configurable protected logging, trusted-proxy HTTPS handling, base-path session cookies, and opt-in production HSTS.
+- Added configurable product-upload, backup-storage, log, `mysqldump`, and `mysql` paths with validation.
+- Updated backup utility option files to include the configured database port.
+- Removed hardcoded `/pos` assumptions from the service worker and manifest scope behavior.
+- Updated the service-worker cache version to `sari-pos-offline-v3-1.0.0` and retained the restricted Offline POS cache strategy.
+- Added conservative source-control exclusions for environment secrets, logs, backups, locks, temporary files, and uploaded product images.
+- Added a protected runtime log directory.
+- Strengthened Apache denial for hidden files and the tools directory.
+- Removed the tracked Chromium `debug.log` development artifact.
+- Updated the schema file release heading without changing schema or seed data.
+- Replaced README with the production setup, deployment, recovery, and operations guide.
 
-## Current Phase
+## Files Created
 
-**Phase 13 — Backup/Restore** ✅ Complete
-
-## Completed Work
-
-### Phases 0–12
-
-- Foundation, database, authentication, RBAC, users, and roles
-- Categories, brands, units, products, inventory, POS, receipts, suppliers, advanced products, reports, and dashboard
-
-### Phase 13
-
-- Added an Administrator-only Backup & Restore page
-- Added verified SQL backup generation using XAMPP `mysqldump`
-- Added protected filesystem backup listing and authorized downloads
-- Added restore from application-managed backups using the XAMPP `mysql` client
-- Added mandatory pre-restore safety backups
-- Added exact restore confirmation and post-restore session invalidation
-- Added a server-side lock to prevent concurrent backup/restore operations
-- Added activity logging for backup creation/download and restore events
-- Protected the backup directory from direct Apache access and Git tracking
-
-## Files Created (Phase 13)
-
-```
-backup/index.php
-backup/process.php
-backup/download.php
-includes/backup.php
-storage/backups/.htaccess
-storage/backups/.gitignore
-storage/backups/.gitkeep
-database/migrations/013_backup_restore.sql
+```text
+.gitignore
+storage/logs/.gitignore
+storage/logs/.gitkeep
+storage/logs/.htaccess
 ```
 
-## Files Modified (Phase 13)
+## Files Modified in Phase 18
 
-```
-database/database.sql
-includes/sidebar.php
+```text
+.htaccess
 AI_PROGRESS.md
-DATABASE_STATUS.md
 README.md
+config/config.php
+config/constants.php
+config/database.php
+database/database.sql
+includes/backup.php
+includes/products.php
+manifest.webmanifest
+service-worker.js
 ```
 
-## Database Changes
+## Files Removed
 
-- Added permission `backup.manage`
-- Assigned `backup.manage` to Administrator only
-- No database tables or columns were added
-- Live schema remains at 17 tables; permission count is now 22
+```text
+debug.log
+```
 
-## Backup and Restore Behavior
+Temporary Phase 18 verification scripts, temporary databases, generated test backups, test sessions, locks, and test logs were removed after testing.
 
-- Backups are SQL dumps stored in `storage/backups/`
-- Filenames are generated server-side with a timestamp and random suffix
-- Completed dumps must be non-empty and contain expected application structures
-- Only verified files matching the managed filename format are listed or downloadable
-- Restore accepts only verified backups from the managed directory
-- A verified `pre_restore_*.sql` safety backup must succeed before the restore command starts
-- A failed restore preserves the safety backup; automatic recovery is not attempted
-- A successful restore destroys the current session and requires a new login
+## Database Status
 
-## Security
+- No table, column, foreign-key, index, permission, seed, or live business-data changes were made in Phase 18.
+- Live `pos_db` remains at **17 tables**, **22 permissions**, **16 foreign keys**, and the original **2 users**.
+- All 17 tables are InnoDB and use utf8mb4 table collations.
+- `database/database.sql` contains all 17 current table definitions and the full current seed set.
+- A real backup was restored into isolated temporary databases for verification; `pos_db` was never dropped, recreated, or restored.
 
-- Authentication and dedicated `backup.manage` permission
-- CSRF protection on create and restore actions
-- Exact `RESTORE` phrase and acknowledgement checkbox
-- Process argument arrays with shell bypass; no browser input enters commands
-- Temporary MySQL client option file keeps credentials off command lines and is deleted after use
-- Strict filename pattern, basename check, real-path containment, and regular-file checks
-- Authorized server-side downloads with no direct SQL-file access
-- Apache `Require all denied` protection and disabled directory indexes
-- Non-blocking file lock prevents simultaneous backup/restore operations
-- Failed and incomplete dumps are removed
-- Raw command errors, credentials, and physical paths are not shown to users or written to activity descriptions
+## Production Configuration
 
-## Environment Requirements
+Supported environment variables now include:
 
-- PHP `proc_open` must be enabled
-- XAMPP `mysqldump` and `mysql` utilities must exist under the checked XAMPP installation
-- `storage/backups/` must be writable by Apache
-- Apache must allow the included `.htaccess`; direct-directory and direct-file denial were verified locally
+```text
+POS_APP_ENV
+POS_APP_DEBUG
+POS_TIMEZONE
+POS_BASE_URL
+POS_DB_HOST
+POS_DB_PORT
+POS_DB_NAME
+POS_DB_USER
+POS_DB_PASSWORD
+POS_PRODUCT_UPLOAD_DIR
+POS_PRODUCT_UPLOAD_URL
+POS_BACKUP_DIR
+POS_LOG_PATH
+POS_MYSQLDUMP_PATH
+POS_MYSQL_PATH
+POS_TRUST_PROXY_HTTPS
+POS_ENABLE_HSTS
+```
 
-## Testing Performed (Phase 13)
+Local defaults remain compatible with `http://localhost/pos/`. Production credentials are not stored in source or documentation. `APP_DEBUG` is forced off in production even if the debug variable is set incorrectly.
 
-| Area | Result |
-|------|--------|
-| Guest, Staff, no-role, and Administrator access | ✅ Pass |
-| Administrator-only `backup.manage` assignment | ✅ Pass |
-| CSRF enforcement for backup and restore | ✅ Pass |
-| Two unique, valid backups created | ✅ Pass |
-| File size and SQL structure/data validation | ✅ Pass |
-| Failed backup cleanup and listing exclusion | ✅ Pass |
-| Unrelated-file filtering and filename validation | ✅ Pass |
-| Path traversal and arbitrary-file download blocking | ✅ Pass |
-| Authorized download and attachment headers | ✅ Pass |
-| Direct directory and SQL-file web access denied | ✅ Pass |
-| Exact restore confirmation and managed-file checks | ✅ Pass |
-| Safety-backup failure leaves live data unchanged | ✅ Pass |
-| Verified pre-restore safety backup generation | ✅ Pass |
-| Concurrent-operation lock | ✅ Pass |
-| Full SQL restore into temporary test database | ✅ Pass |
-| Restored 17-table schema and expected data | ✅ Pass |
-| Restore command failure detection | ✅ Pass |
-| Backup/download/failed-restore activity logs | ✅ Pass |
-| Credential and physical-path leakage checks | ✅ Pass |
-| Core module, dashboard, receipt, and logout regression | ✅ Pass |
-| All project PHP files syntax check | ✅ Pass |
+## Verification Results
 
-**Focused automated result: 52 passed, 0 failed.**
+- **180 structured production-readiness, functional, HTTP/security, data-integrity, backup/restore, and live-browser checks passed; 0 failed.**
+- **18 backup/restore checks passed:** utility readiness, managed backup generation/validation, isolated restore, 17-table/22-permission/16-FK verification, InnoDB/utf8mb4, row-count comparison, and cleanup.
+- **43 isolated business-workflow checks passed:** category/brand/unit, supplier, product CRUD/status, image validation, CSV import/no-overwrite, inventory initialization and movements, stock rejection, POS checkout/rollback, offline synchronization/idempotency, historical prices, dashboard data, and cleanup.
+- **65 authenticated HTTP/security checks passed:** login/logout/session invalidation, guest blocking, Staff RBAC, every major module, product edit, inventory history, receipt, CSV exports, product import template, Offline POS APIs/CSRF, manifest/service worker, backup creation/download, headers, and protected-file 403 responses.
+- **32 read-only live database/schema checks passed:** table/permission/FK counts, InnoDB/utf8mb4, required unique indexes, orphan checks, sale totals, inventory uniqueness/nonnegative values, no Phase 18 test users, and SQL representation.
+- **22 Chromium browser checks passed:** Administrator login; desktop and 390-pixel mobile views for dashboard, products, inventory, POS, receipt, reports, product import, backup, and Offline POS; no horizontal page overflow; Offline POS product-data refresh; service-worker request; and no browser console errors.
+- All **83 PHP files** passed `php -l`.
+- All **3 JavaScript files** (`app.js`, `offline-pos.js`, `service-worker.js`) passed `node --check`.
+- Apache configuration syntax passed. `authz_core`, `headers`, and `rewrite` modules are loaded, and local `htdocs` uses `AllowOverride All`.
+- PHP requirements verified locally: `mysqli`, `session`, `fileinfo`, `json`, `mbstring`, `openssl`, `random_bytes`, password hashing/verification, `getimagesize`, and `proc_open`.
+- Production-mode override test confirmed debug output is disabled, root base-path configuration works, database-port override works, and release version is 1.0.0.
+- Hardcoded local absolute URLs and temporary Phase 18 credential markers were absent from application source.
+- `git diff --check` found no whitespace errors; line-ending notices are repository/Windows normalization warnings only.
 
-## Restore Testing Limitation
+## Security Controls Preserved
 
-The full restore command was tested against a temporary database and the temporary database was removed afterward. The live `pos_db` was not restored or dropped. The live controller's safety-backup ordering, validation, failure handling, activity logging, and session invalidation were inspected and tested through non-destructive paths; a destructive live restore was intentionally not executed.
+- Server-side authentication, active-user checks, RBAC, and permission-gated navigation
+- CSRF protection for state changes and Offline POS synchronization
+- MySQLi prepared statements, transactions, and inventory row locking
+- Password hashing/verification and session ID regeneration
+- `HttpOnly`, `SameSite=Lax`, strict cookie mode, HTTPS-aware `Secure`, and session invalidation
+- Output escaping and generic user-facing database/error messages
+- Image/CSV MIME, content, size, filename, and path checks
+- Backup authorization, managed selection, containment, credential option files, pre-restore backup, and operation lock
+- POS server-side product/price/payment/stock validation and historical prices
+- Offline POS server validation and duplicate-transaction idempotency
+- Protected directories and response security headers
 
-## Known Issues
+## Production Configuration Required
 
-None for Phase 13.
+Before production traffic, operators must complete the unchecked README deployment checklist: production TLS, database creation, dedicated least-privilege database user and strong password, host environment variables, filesystem ownership/permissions, upload/log/backup paths, initial Administrator security, utility paths, monitoring, and scheduled/off-machine backups.
 
-## Exact Next Task
+## Known Production Limitations
 
-**PHASE 14 — OFFLINE POS**
+- HTTPS certificates, Secure cookies, reverse-proxy behavior, and HSTS were not testable on local HTTP XAMPP.
+- Production filesystem ownership, least-privilege database grants, credentials, utility locations, monitoring, and log rotation were not tested on a production host.
+- Scheduled/off-machine backup automation is not included.
+- Strict CSP remains unimplemented because current pages use CDN and inline assets.
+- Login throttling and an inactivity timeout are not implemented.
+- Safari, Firefox, and a physical thermal printer were not available for testing.
+- The standard interface uses Bootstrap/CDN assets on first load; Offline POS uses its separate restricted cache.
+- Offline data remains browser-profile/device-specific and synchronization requires an authenticated online session.
+- Product, inventory, and small master-data lists are not fully paginated and are intended for small-store catalog sizes.
 
-Do not begin until explicitly requested.
+## Issues Encountered
+
+- Automatic approval review rejected an initial plan that would have created and removed temporary records in live `pos_db`. All mutating workflow tests were moved to isolated temporary database clones instead.
+- Initial verification-script assumptions about a role column name and backup download query parameter were corrected; these were test-fixture issues, not application defects.
+- No unresolved Phase 18 application blocker remains.
+
+## Final Status
+
+The application is **ready for controlled production deployment after the documented production environment configuration and all unchecked deployment-checklist items are completed and verified on the target server**.
+
+There is no next development phase. Do not create Phase 19.

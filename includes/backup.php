@@ -10,7 +10,7 @@
  */
 function backup_storage_directory()
 {
-    return BASE_PATH . '/storage/backups';
+    return BACKUP_STORAGE_PATH;
 }
 
 /**
@@ -41,13 +41,15 @@ function find_mysql_utility($name)
         return null;
     }
 
+    $configured_path = $name === 'mysqldump' ? MYSQLDUMP_PATH : MYSQL_CLIENT_PATH;
     $extension = PHP_OS_FAMILY === 'Windows' ? '.exe' : '';
     $xampp_root = dirname(dirname(BASE_PATH));
-    $candidates = [
+    $candidates = array_filter([
+        $configured_path,
         $xampp_root . '/mysql/bin/' . $name . $extension,
         '/usr/bin/' . $name,
         '/usr/local/bin/' . $name,
-    ];
+    ]);
 
     foreach ($candidates as $candidate) {
         if (is_file($candidate) && is_readable($candidate)) {
@@ -80,7 +82,7 @@ function get_backup_environment_status()
  */
 function create_mysql_option_file()
 {
-    $values = [DB_HOST, DB_USER, DB_PASS, DB_CHARSET];
+    $values = [DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_CHARSET];
     foreach ($values as $value) {
         if (preg_match('/[\r\n]/', (string) $value)) {
             return null;
@@ -98,6 +100,7 @@ function create_mysql_option_file()
 
     $contents = "[client]\n"
         . 'host="' . $escape(DB_HOST) . "\"\n"
+        . 'port="' . $escape(DB_PORT) . "\"\n"
         . 'user="' . $escape(DB_USER) . "\"\n"
         . 'password="' . $escape(DB_PASS) . "\"\n"
         . 'default-character-set="' . $escape(DB_CHARSET) . "\"\n";

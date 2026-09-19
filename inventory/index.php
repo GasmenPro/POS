@@ -25,9 +25,9 @@ require_once BASE_PATH . '/includes/sidebar.php';
         </div>
         <?php if ($can_manage): ?>
         <div class="d-flex gap-2 flex-wrap">
-            <a href="<?php echo e(BASE_URL); ?>/inventory/stock_in.php" class="btn btn-success">Stock In</a>
-            <a href="<?php echo e(BASE_URL); ?>/inventory/stock_out.php" class="btn btn-warning">Stock Out</a>
-            <a href="<?php echo e(BASE_URL); ?>/inventory/adjust.php" class="btn btn-secondary">Adjust</a>
+            <a href="<?php echo e(BASE_URL); ?>/inventory/stock_in.php" class="btn btn-success"><i class="bi bi-box-arrow-in-down" aria-hidden="true"></i> Stock In</a>
+            <a href="<?php echo e(BASE_URL); ?>/inventory/stock_out.php" class="btn btn-warning"><i class="bi bi-box-arrow-up" aria-hidden="true"></i> Stock Out</a>
+            <a href="<?php echo e(BASE_URL); ?>/inventory/adjust.php" class="btn btn-secondary"><i class="bi bi-sliders" aria-hidden="true"></i> Adjust</a>
         </div>
         <?php endif; ?>
     </div>
@@ -35,7 +35,7 @@ require_once BASE_PATH . '/includes/sidebar.php';
     <?php if ($success): ?><div class="alert alert-success"><?php echo e($success); ?></div><?php endif; ?>
     <?php if ($error): ?><div class="alert alert-danger"><?php echo e($error); ?></div><?php endif; ?>
 
-    <form method="get" class="row g-2 mb-3">
+    <form method="get" class="row g-2 mb-3 filter-bar">
         <div class="col-md-4">
             <input type="text" name="q" class="form-control" placeholder="Search code, barcode, name..." value="<?php echo e($search); ?>">
         </div>
@@ -86,14 +86,15 @@ require_once BASE_PATH . '/includes/sidebar.php';
                         </td>
                         <td><?php echo e($item['category_name']); ?></td>
                         <td><?php echo e($item['unit_name']); ?></td>
-                        <td><?php echo e(format_qty($item['quantity'])); ?></td>
+                        <td class="stock-value"><?php echo e(format_qty($item['quantity'])); ?></td>
                         <td>
                             <?php if ($can_manage): ?>
                             <form method="post" action="<?php echo e(BASE_URL); ?>/inventory/process.php" class="d-flex gap-1">
                                 <?php csrf_field(); ?>
                                 <input type="hidden" name="action" value="reorder">
                                 <input type="hidden" name="product_id" value="<?php echo e($item['product_id']); ?>">
-                                <input type="number" name="reorder_level" class="form-control form-control-sm" min="0" step="0.001" value="<?php echo e(format_qty($item['reorder_level'])); ?>" style="width:90px">
+                                <label class="visually-hidden" for="reorder-<?php echo (int) $item['product_id']; ?>">Reorder level for <?php echo e($item['product_name']); ?></label>
+                                <input type="number" name="reorder_level" id="reorder-<?php echo (int) $item['product_id']; ?>" class="form-control form-control-sm reorder-input" min="0" step="0.001" value="<?php echo e(format_qty($item['reorder_level'])); ?>">
                                 <button type="submit" class="btn btn-sm btn-outline-secondary">Save</button>
                             </form>
                             <?php else: ?>
@@ -101,7 +102,7 @@ require_once BASE_PATH . '/includes/sidebar.php';
                             <?php endif; ?>
                         </td>
                         <td><span class="badge bg-<?php echo e(get_stock_status_badge($item['stock_status'])); ?>"><?php echo e($item['stock_status']); ?></span></td>
-                        <td>
+                        <td class="table-actions">
                             <a href="<?php echo e(BASE_URL); ?>/inventory/history.php?product_id=<?php echo e($item['product_id']); ?>" class="btn btn-sm btn-outline-primary">History</a>
                         </td>
                     </tr>

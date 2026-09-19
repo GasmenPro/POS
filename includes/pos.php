@@ -264,16 +264,18 @@ function get_product_for_checkout($product_id, $db)
     return $row ?: null;
 }
 
-function insert_sale_record($db, $sale_no, $subtotal, $total, $payment, $change, $user_id)
+function insert_sale_record($db, $sale_no, $subtotal, $total, $payment, $change, $user_id, $offline_transaction_id = null, &$error_code = null)
 {
-    $sql = 'INSERT INTO sales (sale_no, sale_date, subtotal, total_amount, payment_amount, change_amount, created_by)
-            VALUES (?, NOW(), ?, ?, ?, ?, ?)';
+    $sql = 'INSERT INTO sales (sale_no, offline_transaction_id, sale_date, subtotal, total_amount, payment_amount, change_amount, created_by)
+            VALUES (?, ?, NOW(), ?, ?, ?, ?, ?)';
     $stmt = $db->prepare($sql);
     if (!$stmt) {
+        $error_code = $db->errno;
         return 0;
     }
-    $stmt->bind_param('sddddi', $sale_no, $subtotal, $total, $payment, $change, $user_id);
+    $stmt->bind_param('ssddddi', $sale_no, $offline_transaction_id, $subtotal, $total, $payment, $change, $user_id);
     $ok = $stmt->execute();
+    $error_code = $stmt->errno;
     $sale_id = $ok ? (int) $stmt->insert_id : 0;
     $stmt->close();
     return $sale_id;
@@ -293,52 +295,135 @@ function insert_sale_item($db, $sale_id, $product_id, $qty, $unit_price, $line_t
     return $ok;
 }
 
-function process_pos_checkout($payment_amount, $user_id)
+class PosTransactionException extends Exception
 {
-    $cart = get_pos_cart();
-    if (empty($cart)) {
-        return [false, 'Cart is empty.', null, null];
+    private $error_type;
+
+    public function __construct($message, $error_type = 'validation_error')
+    {
+        parent::__construct($message);
+        $this->error_type = $error_type;
+    }
+
+    public function get_error_type()
+    {
+        return $this->error_type;
+    }
+}
+
+function get_sale_by_offline_transaction_id($offline_transaction_id, $db = null, $for_update = false)
+{
+    $db = $db ?: get_db_connection();
+    if (!$db) {
+        return null;
+    }
+
+    $sql = 'SELECT sale_id, sale_no, total_amount, payment_amount, change_amount
+            FROM sales
+            WHERE offline_transaction_id = ?
+            LIMIT 1';
+    if ($for_update) {
+        $sql .= ' FOR UPDATE';
+    }
+
+    $stmt = $db->prepare($sql);
+    if (!$stmt) {
+        return null;
+    }
+    $stmt->bind_param('s', $offline_transaction_id);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return $row ?: null;
+}
+
+/**
+ * Process a server-authoritative sale transaction for online or offline-origin items.
+ *
+ * @param array $items
+ * @param mixed $payment_amount
+ * @param int $user_id
+ * @param string|null $offline_transaction_id
+ * @param bool $enforce_cached_price
+ * @return array
+ */
+function process_sale_transaction($items, $payment_amount, $user_id, $offline_transaction_id = null, $enforce_cached_price = false)
+{
+    if (!is_array($items) || empty($items)) {
+        return ['ok' => false, 'message' => 'Sale has no items.', 'error_type' => 'validation_error'];
+    }
+
+    if (!is_numeric($payment_amount)) {
+        return ['ok' => false, 'message' => 'Invalid payment amount.', 'error_type' => 'validation_error'];
     }
 
     $payment = round((float) $payment_amount, 2);
-    if ($payment < 0) {
-        return [false, 'Invalid payment amount.', null, null];
+    if (!is_finite($payment) || $payment < 0 || $payment > 9999999999.99) {
+        return ['ok' => false, 'message' => 'Invalid payment amount.', 'error_type' => 'validation_error'];
     }
 
     $db = get_db_connection();
     if (!$db) {
-        return [false, 'Database connection failed.', null, null];
+        return ['ok' => false, 'message' => 'Server database is unavailable.', 'error_type' => 'server_error'];
     }
+
+    usort($items, static function ($left, $right) {
+        return ((int) $left['product_id']) <=> ((int) $right['product_id']);
+    });
 
     $db->begin_transaction();
     try {
+        if ($offline_transaction_id !== null) {
+            $existing = get_sale_by_offline_transaction_id($offline_transaction_id, $db, true);
+            if ($existing) {
+                $db->rollback();
+                return [
+                    'ok' => true,
+                    'already_synchronized' => true,
+                    'message' => 'Already synchronized as ' . $existing['sale_no'] . '.',
+                    'sale_id' => (int) $existing['sale_id'],
+                    'sale_no' => $existing['sale_no'],
+                    'total_amount' => (float) $existing['total_amount'],
+                    'payment_amount' => (float) $existing['payment_amount'],
+                    'change_amount' => (float) $existing['change_amount'],
+                ];
+            }
+        }
+
         $verified_items = [];
         $subtotal = 0.0;
 
-        foreach ($cart as $product_id => $item) {
-            $product_id = (int) $product_id;
+        foreach ($items as $item) {
+            $product_id = (int) ($item['product_id'] ?? 0);
             $cart_qty = (float) $item['quantity'];
-            if ($cart_qty <= 0) {
-                throw new Exception('Invalid cart quantity.');
+            if ($product_id <= 0 || !is_finite($cart_qty) || $cart_qty <= 0 || $cart_qty > 999999999.999) {
+                throw new PosTransactionException('Invalid product or quantity.', 'validation_error');
             }
 
             $product = get_product_for_checkout($product_id, $db);
             if (!$product || $product['status'] !== 'active') {
                 $name = $product ? $product['product_name'] : 'Product';
-                throw new Exception($name . ' is no longer available.');
+                throw new PosTransactionException($name . ' is no longer active or available.', 'product_conflict');
+            }
+
+            $unit_price = round((float) $product['selling_price'], 2);
+            if ($enforce_cached_price) {
+                $cached_price = round((float) ($item['cached_unit_price'] ?? -1), 2);
+                if ($cached_price < 0 || (int) round($cached_price * 100) !== (int) round($unit_price * 100)) {
+                    throw new PosTransactionException('Product price changed for ' . $product['product_name'] . '. Review the pending sale.', 'price_conflict');
+                }
             }
 
             $inv = get_inventory_row_for_update($product_id, $db);
             if (!$inv) {
-                throw new Exception('Inventory record not found for ' . $product['product_name'] . '.');
+                throw new PosTransactionException('Inventory is unavailable for ' . $product['product_name'] . '.', 'inventory_conflict');
             }
 
             $prev = (float) $inv['quantity'];
             if ($cart_qty > $prev) {
-                throw new Exception('Insufficient stock for ' . $product['product_name'] . '. Available: ' . format_qty($prev));
+                throw new PosTransactionException('Insufficient current stock for ' . $product['product_name'] . '. Available: ' . format_qty($prev), 'inventory_conflict');
             }
 
-            $unit_price = round((float) $product['selling_price'], 2);
             $line_total = round($cart_qty * $unit_price, 2);
             $subtotal += $line_total;
 
@@ -357,8 +442,7 @@ function process_pos_checkout($payment_amount, $user_id)
         $total = $subtotal;
 
         if ($payment < $total) {
-            $db->rollback();
-            return [false, 'Insufficient payment. Total: ' . format_money($total), null, null];
+            throw new PosTransactionException('Insufficient payment. Total: ' . format_money($total), 'payment_conflict');
         }
 
         $change = round($payment - $total, 2);
@@ -367,26 +451,43 @@ function process_pos_checkout($payment_amount, $user_id)
 
         for ($attempt = 0; $attempt < 5; $attempt++) {
             $sale_no = generate_sale_no($db);
-            $sale_id = insert_sale_record($db, $sale_no, $subtotal, $total, $payment, $change, $user_id);
+            $insert_error = 0;
+            $sale_id = insert_sale_record($db, $sale_no, $subtotal, $total, $payment, $change, $user_id, $offline_transaction_id, $insert_error);
             if ($sale_id > 0) {
                 break;
             }
-            if ($db->errno !== 1062) {
-                throw new Exception('Failed to create sale record.');
+            if ($insert_error !== 1062) {
+                throw new PosTransactionException('Unable to create the sale.', 'server_error');
+            }
+            if ($offline_transaction_id !== null) {
+                $existing = get_sale_by_offline_transaction_id($offline_transaction_id, $db, true);
+                if ($existing) {
+                    $db->rollback();
+                    return [
+                        'ok' => true,
+                        'already_synchronized' => true,
+                        'message' => 'Already synchronized as ' . $existing['sale_no'] . '.',
+                        'sale_id' => (int) $existing['sale_id'],
+                        'sale_no' => $existing['sale_no'],
+                        'total_amount' => (float) $existing['total_amount'],
+                        'payment_amount' => (float) $existing['payment_amount'],
+                        'change_amount' => (float) $existing['change_amount'],
+                    ];
+                }
             }
         }
 
         if ($sale_id <= 0) {
-            throw new Exception('Failed to generate unique sale number.');
+            throw new PosTransactionException('Unable to generate a unique sale number.', 'server_error');
         }
 
         foreach ($verified_items as $vi) {
             if (!insert_sale_item($db, $sale_id, $vi['product_id'], $vi['quantity'], $vi['unit_price'], $vi['line_total'])) {
-                throw new Exception('Failed to record sale item.');
+                throw new PosTransactionException('Unable to record the sale item.', 'server_error');
             }
 
             if (!update_inventory_quantity($db, $vi['product_id'], $vi['new_qty'])) {
-                throw new Exception('Failed to update inventory.');
+                throw new PosTransactionException('Unable to update inventory.', 'server_error');
             }
 
             if (!insert_inventory_movement(
@@ -400,24 +501,214 @@ function process_pos_checkout($payment_amount, $user_id)
                 'POS Sale',
                 $user_id
             )) {
-                throw new Exception('Failed to record inventory movement.');
+                throw new PosTransactionException('Unable to record inventory movement.', 'server_error');
             }
         }
 
-        record_activity_log(
+        $activity_action = $offline_transaction_id === null ? 'sale_completed' : 'offline_sale_synchronized';
+        $activity_description = $offline_transaction_id === null
+            ? 'Sale #' . $sale_no . ' (ID ' . $sale_id . ') total ' . format_money($total)
+            : 'Offline transaction ' . $offline_transaction_id . ' synchronized as ' . $sale_no . ' (ID ' . $sale_id . ') total ' . format_money($total);
+        if (!record_activity_log(
             $user_id,
-            'sale_completed',
+            $activity_action,
             'pos',
-            'Sale #' . $sale_no . ' (ID ' . $sale_id . ') total ' . format_money($total)
-        );
+            $activity_description
+        )) {
+            throw new PosTransactionException('Unable to record sale activity.', 'server_error');
+        }
 
         $db->commit();
-        clear_pos_cart();
-        return [true, 'Sale completed successfully.', $sale_id, $sale_no];
-    } catch (Exception $e) {
+        return [
+            'ok' => true,
+            'already_synchronized' => false,
+            'message' => 'Sale completed successfully.',
+            'sale_id' => $sale_id,
+            'sale_no' => $sale_no,
+            'total_amount' => $total,
+            'payment_amount' => $payment,
+            'change_amount' => $change,
+        ];
+    } catch (PosTransactionException $e) {
         $db->rollback();
-        return [false, $e->getMessage(), null, null];
+        return ['ok' => false, 'message' => $e->getMessage(), 'error_type' => $e->get_error_type()];
+    } catch (Throwable $e) {
+        $db->rollback();
+        return ['ok' => false, 'message' => 'Sale processing failed. Please try again.', 'error_type' => 'server_error'];
     }
+}
+
+function process_pos_checkout($payment_amount, $user_id)
+{
+    $cart = get_pos_cart();
+    if (empty($cart)) {
+        return [false, 'Cart is empty.', null, null];
+    }
+
+    $items = [];
+    foreach ($cart as $product_id => $item) {
+        $items[] = [
+            'product_id' => (int) $product_id,
+            'quantity' => $item['quantity'],
+        ];
+    }
+
+    $result = process_sale_transaction($items, $payment_amount, $user_id);
+    if (!$result['ok']) {
+        return [false, $result['message'], null, null];
+    }
+
+    clear_pos_cart();
+    return [true, 'Sale completed successfully.', $result['sale_id'], $result['sale_no']];
+}
+
+function process_offline_sale_sync($payload, $user_id)
+{
+    if (!is_array($payload)) {
+        return ['ok' => false, 'message' => 'Invalid synchronization data.', 'error_type' => 'validation_error'];
+    }
+
+    $offline_id = strtoupper(trim((string) ($payload['offline_transaction_id'] ?? '')));
+    if (preg_match('/^OFFLINE-[0-9]{13}-[A-F0-9]{16}$/', $offline_id) !== 1) {
+        return ['ok' => false, 'message' => 'Invalid offline transaction ID.', 'error_type' => 'validation_error'];
+    }
+
+    $existing = get_sale_by_offline_transaction_id($offline_id);
+    if ($existing) {
+        record_activity_log($user_id, 'offline_sale_already_synchronized', 'pos', 'Offline transaction ' . $offline_id . ' already synchronized as ' . $existing['sale_no']);
+        return [
+            'ok' => true,
+            'already_synchronized' => true,
+            'message' => 'Already synchronized as ' . $existing['sale_no'] . '.',
+            'sale_id' => (int) $existing['sale_id'],
+            'sale_no' => $existing['sale_no'],
+            'total_amount' => (float) $existing['total_amount'],
+            'payment_amount' => (float) $existing['payment_amount'],
+            'change_amount' => (float) $existing['change_amount'],
+        ];
+    }
+
+    $items = $payload['items'] ?? null;
+    if (!is_array($items) || empty($items) || count($items) > 100) {
+        $result = ['ok' => false, 'message' => 'Offline sale must contain 1 to 100 items.', 'error_type' => 'validation_error'];
+        record_activity_log($user_id, 'offline_sale_sync_failed', 'pos', 'Offline transaction ' . $offline_id . ' failed: validation_error');
+        return $result;
+    }
+
+    $normalized = [];
+    $seen_products = [];
+    foreach ($items as $item) {
+        if (!is_array($item)) {
+            $normalized = [];
+            break;
+        }
+        $product_id = filter_var($item['product_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $quantity = $item['quantity'] ?? null;
+        $cached_price = $item['cached_unit_price'] ?? null;
+        if ($product_id === false || isset($seen_products[$product_id]) || !is_numeric($quantity) || !is_numeric($cached_price)) {
+            $normalized = [];
+            break;
+        }
+        $quantity = (float) $quantity;
+        $cached_price = round((float) $cached_price, 2);
+        if (!is_finite($quantity) || !is_finite($cached_price) || $quantity <= 0 || $quantity > 999999999.999 || $cached_price < 0 || $cached_price > 9999999999.99) {
+            $normalized = [];
+            break;
+        }
+        $seen_products[$product_id] = true;
+        $normalized[] = [
+            'product_id' => (int) $product_id,
+            'quantity' => $quantity,
+            'cached_unit_price' => $cached_price,
+        ];
+    }
+
+    if (count($normalized) !== count($items)) {
+        $result = ['ok' => false, 'message' => 'Offline sale contains invalid or duplicate items.', 'error_type' => 'validation_error'];
+        record_activity_log($user_id, 'offline_sale_sync_failed', 'pos', 'Offline transaction ' . $offline_id . ' failed: validation_error');
+        return $result;
+    }
+
+    $result = process_sale_transaction(
+        $normalized,
+        $payload['payment_amount'] ?? null,
+        $user_id,
+        $offline_id,
+        true
+    );
+
+    if (!$result['ok']) {
+        record_activity_log($user_id, 'offline_sale_sync_failed', 'pos', 'Offline transaction ' . $offline_id . ' failed: ' . $result['error_type']);
+    } elseif (!empty($result['already_synchronized'])) {
+        record_activity_log($user_id, 'offline_sale_already_synchronized', 'pos', 'Offline transaction ' . $offline_id . ' already synchronized as ' . $result['sale_no']);
+    }
+
+    return $result;
+}
+
+function get_offline_pos_products()
+{
+    $db = get_db_connection();
+    if (!$db) {
+        return [];
+    }
+
+    sync_missing_inventory_records();
+    $status = 'active';
+    $sql = 'SELECT p.product_id, p.product_code, p.barcode, p.product_name, u.unit_name,
+                   p.selling_price, COALESCE(i.quantity, 0) AS quantity, p.status,
+                   GREATEST(p.updated_at, COALESCE(i.updated_at, p.updated_at)) AS updated_at
+            FROM products p
+            INNER JOIN units u ON u.unit_id = p.unit_id
+            LEFT JOIN inventory i ON i.product_id = p.product_id
+            WHERE p.status = ?
+            ORDER BY p.product_name ASC';
+    $stmt = $db->prepare($sql);
+    $stmt->bind_param('s', $status);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $products = [];
+    while ($row = $result->fetch_assoc()) {
+        $products[] = [
+            'product_id' => (int) $row['product_id'],
+            'product_code' => $row['product_code'],
+            'barcode' => $row['barcode'],
+            'product_name' => $row['product_name'],
+            'unit_name' => $row['unit_name'],
+            'selling_price' => (float) $row['selling_price'],
+            'quantity' => (float) $row['quantity'],
+            'status' => $row['status'],
+            'updated_at' => $row['updated_at'],
+        ];
+    }
+    $stmt->close();
+    return $products;
+}
+
+function pos_json_response($payload, $status = 200)
+{
+    http_response_code($status);
+    header('Content-Type: application/json; charset=UTF-8');
+    header('Cache-Control: no-store, private');
+    header('X-Content-Type-Options: nosniff');
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+function require_pos_api_permission($permission)
+{
+    if (!is_logged_in()) {
+        pos_json_response(['ok' => false, 'error_type' => 'authentication', 'message' => 'Authentication required. Reconnect and sign in again.'], 401);
+    }
+    if (!user_has_permission($permission)) {
+        pos_json_response(['ok' => false, 'error_type' => 'authorization', 'message' => 'You do not have permission to perform this action.'], 403);
+    }
+}
+
+function verify_pos_api_csrf()
+{
+    $token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    return is_string($token) && $token !== '' && hash_equals(csrf_token(), $token);
 }
 
 function get_sales_list($search = '', $limit = 100)

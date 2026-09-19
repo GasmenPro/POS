@@ -56,11 +56,11 @@
 
 `inventory_movements.supplier_id` is nullable and references `suppliers.supplier_id` with restrictive deletion behavior. Stock-in movements may store a supplier; stock-out, adjustments, POS movements, and earlier records keep `NULL`.
 
-### Sales / POS (Phase 7)
+### Sales / POS (Phases 7 and 14)
 
 | Table | Purpose |
 |-------|---------|
-| `sales` | Completed sale records |
+| `sales` | Completed sale records, including optional offline synchronization identity |
 | `sale_items` | Sale line items with historical unit price |
 
 ## sales Table
@@ -69,6 +69,7 @@
 |--------|-------|
 | `sale_id` | Primary key |
 | `sale_no` | Unique sale number (e.g. SALE-20260911-0001) |
+| `offline_transaction_id` | Nullable unique browser transaction ID for idempotent offline synchronization; normal online sales use `NULL` |
 | `sale_date` | Datetime of sale |
 | `subtotal` | Sum of line totals |
 | `total_amount` | Total due (same as subtotal in Phase 7) |
@@ -131,6 +132,7 @@ sales ──< sale_items >── products
 - `database/migrations/009_suppliers.sql` — Phase 9 supplier and stock-in integration migration
 - `database/migrations/010_advanced_products.sql` — Phase 10 optional product image column
 - `database/migrations/013_backup_restore.sql` — Phase 13 Administrator-only backup permission
+- `database/migrations/014_offline_pos.sql` — Phase 14 nullable unique offline transaction ID
 
 ## Notes
 
@@ -143,3 +145,5 @@ sales ──< sale_items >── products
 - Phase 10 reused `products.view` and `products.manage`.
 - Phase 13 added `backup.manage` to Administrator only; no database table or column was added.
 - SQL backups are stored outside database tables in the protected `storage/backups/` directory.
+- Phase 14 added `sales.offline_transaction_id` and its unique index; table and permission counts did not change.
+- Offline synchronization creates normal sales, sale items, inventory deductions, and stock-out movements in one transaction.

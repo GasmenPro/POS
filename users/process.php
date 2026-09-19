@@ -197,13 +197,16 @@ function handle_update_user()
         redirect('/users/edit.php?id=' . $user_id);
     }
 
-    if ($user_id !== get_current_user_id() && $fields['status'] !== 'active' && is_only_active_administrator($user_id)) {
+    $old_role_id = get_user_role_id($user_id);
+    $old_role_name = get_role_name($old_role_id);
+    $new_role_name = get_role_name($fields['role_id']);
+    if ($old_role_name === 'Administrator' && is_only_active_administrator($user_id)
+        && ($fields['status'] !== 'active' || $new_role_name !== 'Administrator')) {
         save_old_input();
-        set_flash('error', 'Cannot deactivate the only active administrator.');
+        set_flash('error', 'Cannot remove access from the only active administrator.');
         redirect('/users/edit.php?id=' . $user_id);
     }
 
-    $old_role_id = get_user_role_id($user_id);
     $password_hash = $password !== '' ? password_hash($password, PASSWORD_DEFAULT) : null;
 
     if (!update_user($user_id, $fields, $fields['role_id'], $password_hash)) {
@@ -238,6 +241,9 @@ function handle_update_user()
         $_SESSION['last_name'] = $fields['last_name'];
         $_SESSION['email'] = $fields['email'];
         $_SESSION['roles'] = get_user_roles($user_id);
+        if ($password_hash) {
+            session_regenerate_id(true);
+        }
     }
 
     set_flash('success', 'User updated successfully.');

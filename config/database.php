@@ -20,15 +20,26 @@ function get_db_connection()
 
     mysqli_report(MYSQLI_REPORT_OFF);
 
-    $connection = @new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-
-    if ($connection->connect_errno) {
-        $connection = null;
+    $candidate = mysqli_init();
+    if (!$candidate) {
+        error_log('Database initialization failed.');
         return null;
     }
 
-    $connection->set_charset(DB_CHARSET);
+    $candidate->options(MYSQLI_OPT_CONNECT_TIMEOUT, 5);
+    if (!@$candidate->real_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT)) {
+        error_log('Database connection failed.');
+        $candidate->close();
+        return null;
+    }
 
+    if (!$candidate->set_charset(DB_CHARSET)) {
+        error_log('Database character-set initialization failed.');
+        $candidate->close();
+        return null;
+    }
+
+    $connection = $candidate;
     return $connection;
 }
 

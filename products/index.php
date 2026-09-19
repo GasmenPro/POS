@@ -26,14 +26,17 @@ require_once BASE_PATH . '/includes/sidebar.php';
             <p class="text-muted mb-0">Manage product master records.</p>
         </div>
         <?php if ($can_manage): ?>
-            <a href="<?php echo e(BASE_URL); ?>/products/add.php" class="btn btn-primary">Add Product</a>
+            <div class="d-flex gap-2">
+                <a href="<?php echo e(BASE_URL); ?>/products/import.php" class="btn btn-outline-success"><i class="bi bi-file-earmark-arrow-up" aria-hidden="true"></i> Import Products</a>
+                <a href="<?php echo e(BASE_URL); ?>/products/add.php" class="btn btn-primary"><i class="bi bi-plus-circle" aria-hidden="true"></i> Add Product</a>
+            </div>
         <?php endif; ?>
     </div>
 
     <?php if ($success): ?><div class="alert alert-success"><?php echo e($success); ?></div><?php endif; ?>
     <?php if ($error): ?><div class="alert alert-danger"><?php echo e($error); ?></div><?php endif; ?>
 
-    <form method="get" class="row g-2 mb-3">
+    <form method="get" class="row g-2 mb-3 filter-bar">
         <div class="col-md-3">
             <input type="text" name="q" class="form-control" placeholder="Search code, barcode, or name..." value="<?php echo e($search); ?>">
         </div>
@@ -87,9 +90,9 @@ require_once BASE_PATH . '/includes/sidebar.php';
                         <td>
                             <?php $image_url = product_image_url($item['image']); ?>
                             <?php if ($image_url): ?>
-                                <img src="<?php echo e($image_url); ?>" alt="" class="product-thumbnail">
+                                <img src="<?php echo e($image_url); ?>" alt="Photo of <?php echo e($item['product_name']); ?>" class="product-thumbnail">
                             <?php else: ?>
-                                <span class="product-thumbnail-placeholder">No image</span>
+                                <span class="product-thumbnail-placeholder" role="img" aria-label="No image available for <?php echo e($item['product_name']); ?>">No image</span>
                             <?php endif; ?>
                         </td>
                         <td><?php echo e($item['product_code']); ?></td>
@@ -98,9 +101,9 @@ require_once BASE_PATH . '/includes/sidebar.php';
                         <td><?php echo e($item['category_name']); ?></td>
                         <td><?php echo e($item['brand_name'] ?? '—'); ?></td>
                         <td><?php echo e($item['unit_name']); ?></td>
-                        <td><?php echo e(format_price($item['selling_price'])); ?></td>
-                        <td><?php echo e(format_qty($item['quantity'])); ?></td>
-                        <td>
+                        <td class="money">₱<?php echo e(format_price($item['selling_price'])); ?></td>
+                        <td class="stock-value"><?php echo e(format_qty($item['quantity'])); ?></td>
+                        <td class="table-actions">
                             <?php $stock_badge = $item['stock_status'] === 'Out of Stock' ? 'danger' : ($item['stock_status'] === 'Low Stock' ? 'warning text-dark' : 'success'); ?>
                             <span class="badge bg-<?php echo e($stock_badge); ?>"><?php echo e($item['stock_status']); ?></span>
                         </td>

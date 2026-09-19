@@ -1,4 +1,4 @@
--- Sari-Sari Store POS — Phase 1 Database Foundation
+-- Sari-Sari Store POS — Complete schema through Phase 18 (release 1.0.0)
 -- Database: pos_db
 
 CREATE DATABASE IF NOT EXISTS pos_db
@@ -303,6 +303,7 @@ CREATE TABLE IF NOT EXISTS inventory_movements (
 CREATE TABLE IF NOT EXISTS sales (
     sale_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     sale_no VARCHAR(50) NOT NULL,
+    offline_transaction_id VARCHAR(80) DEFAULT NULL,
     sale_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     subtotal DECIMAL(12,2) NOT NULL DEFAULT 0.00,
     total_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
@@ -312,6 +313,7 @@ CREATE TABLE IF NOT EXISTS sales (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (sale_id),
     UNIQUE KEY uq_sales_sale_no (sale_no),
+    UNIQUE KEY uq_sales_offline_transaction_id (offline_transaction_id),
     KEY idx_sales_sale_date (sale_date),
     KEY idx_sales_created_by (created_by),
     CONSTRAINT fk_sales_created_by

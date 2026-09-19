@@ -26,7 +26,7 @@ require_once BASE_PATH . '/includes/sidebar.php';
 <main class="col-md-9 col-lg-10 p-4">
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2"><div><h1 class="h3 mb-1">Inventory Movement Report</h1><p class="text-muted mb-0">Recorded stock-in, stock-out, and adjustment activity.</p></div><div><a href="<?php echo e(report_export_link('movements')); ?>" class="btn btn-success">Export CSV</a> <a href="<?php echo e(BASE_URL); ?>/reports/index.php" class="btn btn-outline-secondary">Reports</a></div></div>
     <?php if (!$range['valid']): ?><div class="alert alert-danger"><?php echo e($range['message']); ?></div><?php endif; ?>
-    <form method="get" class="card card-body mb-3"><div class="row g-2 align-items-end">
+    <form method="get" class="card card-body mb-3 filter-bar"><div class="row g-2 align-items-end">
         <div class="col-md-2"><label class="form-label">Date From</label><input type="date" name="date_from" class="form-control" value="<?php echo e($date_from); ?>"></div>
         <div class="col-md-2"><label class="form-label">Date To</label><input type="date" name="date_to" class="form-control" value="<?php echo e($date_to); ?>"></div>
         <div class="col-md-2"><label class="form-label">Movement</label><select name="movement_type" class="form-select"><option value="">All</option><option value="stock_in" <?php echo $filters['movement_type'] === 'stock_in' ? 'selected' : ''; ?>>Stock In</option><option value="stock_out" <?php echo $filters['movement_type'] === 'stock_out' ? 'selected' : ''; ?>>Stock Out</option><option value="adjustment" <?php echo $filters['movement_type'] === 'adjustment' ? 'selected' : ''; ?>>Adjustment</option></select></div>
